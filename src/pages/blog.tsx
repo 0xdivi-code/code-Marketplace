@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/field";
 import { posts } from "@/data/catalog";
 import { cn } from "@/lib/utils";
+import { RefImage } from "@/components/ui/ref-image";
 
 const cats = ["All", "Business", "Engineering", "Product"];
 
@@ -120,6 +121,8 @@ export default function BlogPage() {
                     className="relative aspect-[16/9] overflow-hidden rounded-md"
                     style={{ background: `linear-gradient(135deg, ${p.from}, ${p.to})` }}
                   >
+                    <RefImage src={p.src} hover />
+                    {p.src && <div className="absolute inset-0 bg-gradient-to-t from-[#14120f]/45 to-transparent" />}
                     <Badge variant="glass" size="sm" className="absolute left-3 top-3">
                       {p.category}
                     </Badge>

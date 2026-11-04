@@ -32,6 +32,7 @@ import {
   trendingProducts,
 } from "@/data/catalog";
 import { compact, money } from "@/lib/utils";
+import { RefImage } from "@/components/ui/ref-image";
 import { useUi } from "@/lib/store";
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -138,15 +139,23 @@ return (
                     className="relative aspect-[5/3] overflow-hidden"
                     style={{ background: `linear-gradient(135deg, ${c.from}, ${c.to})` }}
                   >
-                    <svg
-                      viewBox="0 0 300 180"
-                      className="absolute inset-0 size-full opacity-40 transition-transform duration-700 group-hover:scale-105"
-                      aria-hidden
-                    >
-                      <circle cx="240" cy="40" r="60" fill="white" opacity="0.08" />
-                      <circle cx="60" cy="150" r="44" fill="white" opacity="0.06" />
-                      <path d="M0 130 Q 75 100 150 130 T 300 120" stroke="white" strokeWidth="1" fill="none" opacity="0.25" />
-                    </svg>
+                    {c.src ? (
+                      <>
+                        <RefImage src={c.src} hover />
+                        {/* keeps the label legible over arbitrary photography */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#14120f]/80 via-[#14120f]/20 to-transparent" />
+                      </>
+                    ) : (
+                      <svg
+                        viewBox="0 0 300 180"
+                        className="absolute inset-0 size-full opacity-40 transition-transform duration-700 group-hover:scale-105"
+                        aria-hidden
+                      >
+                        <circle cx="240" cy="40" r="60" fill="white" opacity="0.08" />
+                        <circle cx="60" cy="150" r="44" fill="white" opacity="0.06" />
+                        <path d="M0 130 Q 75 100 150 130 T 300 120" stroke="white" strokeWidth="1" fill="none" opacity="0.25" />
+                      </svg>
+                    )}
                     <div className="absolute inset-0 flex flex-col justify-end p-4">
                       <span className="label-mono text-[0.5rem] text-white/60">
                         {items.length} item{items.length === 1 ? "" : "s"}
@@ -460,6 +469,7 @@ return (
                   className="relative aspect-[16/9] overflow-hidden rounded-md"
                   style={{ background: `linear-gradient(135deg, ${post.from}, ${post.to})` }}
                 >
+                  <RefImage src={post.src} hover />
                   <svg viewBox="0 0 320 180" className="absolute inset-0 size-full" aria-hidden>
                     <path
                       d="M0 140 Q 80 96 160 132 T 320 118"

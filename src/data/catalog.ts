@@ -1,3 +1,4 @@
+import { refSrc } from "@/data/ref-images";
 import type {
   ActivityEntry,
   Author,
@@ -20,6 +21,7 @@ export const categories: Category[] = [
     from: "#17392b",
     to: "#2f6b4f",
     glyph: "layers",
+    src: refSrc("c-website-templates"),
   },
   {
     slug: "admin-dashboards",
@@ -28,6 +30,7 @@ export const categories: Category[] = [
     from: "#c0592b",
     to: "#e0885c",
     glyph: "layout-dashboard",
+    src: refSrc("c-ui-kits"),
   },
   {
     slug: "ui-kits",
@@ -36,6 +39,7 @@ export const categories: Category[] = [
     from: "#2c4a6e",
     to: "#57799f",
     glyph: "component",
+    src: refSrc("c-ui-kits"),
   },
   {
     slug: "api-backends",
@@ -44,6 +48,7 @@ export const categories: Category[] = [
     from: "#4a3f6b",
     to: "#7a6ba3",
     glyph: "server",
+    src: refSrc("c-scripts-code"),
   },
   {
     slug: "auth-payments",
@@ -52,6 +57,7 @@ export const categories: Category[] = [
     from: "#7c3517",
     to: "#b0842f",
     glyph: "key-round",
+    src: refSrc("c-scripts-code"),
   },
   {
     slug: "mobile-starters",
@@ -60,6 +66,7 @@ export const categories: Category[] = [
     from: "#1f4b52",
     to: "#3f8189",
     glyph: "smartphone",
+    src: refSrc("c-wordpress"),
   },
   {
     slug: "dev-tooling",
@@ -68,6 +75,7 @@ export const categories: Category[] = [
     from: "#3a3a34",
     to: "#6d6a5c",
     glyph: "terminal",
+    src: refSrc("c-scripts-code"),
   },
   {
     slug: "free-code",
@@ -76,6 +84,7 @@ export const categories: Category[] = [
     from: "#56682e",
     to: "#8a9c52",
     glyph: "gift",
+    src: refSrc("c-graphics"),
   },
 ];
 
@@ -143,11 +152,18 @@ export const authors: Author[] = [
 ];
 
 /* ------------------------------------------------------------------ helpers */
-const art = (from: string, to: string, ink: string, kind: Product["art"]["kind"]) => ({
+const art = (
+  from: string,
+  to: string,
+  ink: string,
+  kind: Product["art"]["kind"],
+  src?: string,
+) => ({
   from,
   to,
   ink,
   kind,
+  ...(src ? { src: refSrc(src) } : {}),
 });
 
 /** Snap a computed license price to a clean retail figure (…9 style). */
@@ -197,15 +213,23 @@ const tiers = (
   },
 ];
 
-const gallery = (base: { from: string; to: string; ink?: string }, captions: string[], ink = "#ffffff") =>
-  captions.map((caption, i) => ({
+const gallery = (
+  base: { from: string; to: string; ink?: string },
+  captions: string[],
+  opts: { ink?: string; images?: (string | undefined)[] } = {},
+) => {
+  const ink = opts.ink ?? "#ffffff";
+  const images = opts.images ?? [];
+  return captions.map((caption, i) => ({
     id: `g${i + 1}`,
     caption,
     from: base.from,
     to: base.to,
     ink: base.ink ?? ink,
     kind: (["window", "grid", "terminal", "waves", "window"] as const)[i % 5],
+    ...(images[i] ? { src: refSrc(images[i]!) } : {}),
   }));
+};
 
 /* ------------------------------------------------------------------ products */
 export const products: Product[] = [
@@ -232,7 +256,7 @@ export const products: Product[] = [
     released: "2024-03-04",
     version: "4.2.0",
     license: "Regular",
-    art: art("#17392b", "#3d7a58", "#eef4e9", "window"),
+    art: art("#17392b", "#3d7a58", "#eef4e9", "window", "p-flowsync"),
     description:
       "A batteries-included Next.js starter for teams that are tired of rebuilding the same five screens. Multi-tenant auth, role-based access, Stripe subscriptions with proration, transactional email and an audit log are wired end to end — with tests.",
     features: [
@@ -286,7 +310,7 @@ export const products: Product[] = [
       "Audit log with inline diff",
       "Local development in one command",
       "Marketing site included",
-    ]),
+    ], { images: ["p-flowsync", "p-nova-ui-kit", undefined, "p-calm-workspace"] }),
   },
   {
     slug: "lattice-admin",
@@ -311,7 +335,7 @@ export const products: Product[] = [
     released: "2024-09-12",
     version: "3.4.1",
     license: "Regular",
-    art: art("#c0592b", "#e69a70", "#3a1a0c", "grid"),
+    art: art("#c0592b", "#e69a70", "#3a1a0c", "grid", "p-nova-ui-kit"),
     description:
       "Twenty-one screens of operational UI: cohort tables, saved views, bulk actions, inline editing and a command palette that actually indexes your entities. Built for support teams who live in the dashboard all day.",
     features: [
@@ -350,7 +374,7 @@ export const products: Product[] = [
       "Virtualised orders table",
       "Command palette",
       "Bulk action drawer",
-    ]),
+    ], { images: ["p-nova-ui-kit", "p-flowsync", "p-calm-workspace"] }),
   },
   {
     slug: "kiln-ui",
@@ -374,7 +398,7 @@ export const products: Product[] = [
     released: "2025-02-20",
     version: "2.1.0",
     license: "Regular",
-    art: art("#2c4a6e", "#6a8fb8", "#eef3f9", "grid"),
+    art: art("#2c4a6e", "#6a8fb8", "#eef3f9", "grid", "p-line-icons"),
     description:
       "The component layer this marketplace runs on. Every primitive ships with loading, empty, error and dense variants so you never ship the happy path only.",
     features: [
@@ -406,7 +430,7 @@ export const products: Product[] = [
       "Primitive library overview",
       "Page recipe: settings",
       "Dark token parity",
-    ]),
+    ], { images: ["p-line-icons", "p-happy-people", "p-abstract-gradient"] }),
   },
   {
     slug: "relay-api",
@@ -430,7 +454,7 @@ export const products: Product[] = [
     released: "2025-04-11",
     version: "1.9.2",
     license: "Regular",
-    art: art("#4a3f6b", "#8a7bb8", "#f1eef9", "terminal"),
+    art: art("#4a3f6b", "#8a7bb8", "#f1eef9", "terminal", "p-scripts-code-generic"),
     description:
       "Schema-first HTTP API with typed routes, request validation, background jobs, scheduled tasks, OpenAPI generation and structured logs. Ships with a working example domain so you can delete your way to your own product.",
     features: [
@@ -462,7 +486,7 @@ export const products: Product[] = [
       "OpenAPI reference",
       "Job queue dashboard",
       "Structured logs",
-    ]),
+    ], { images: ["p-above-valley", "p-skyline-dusk"] }),
   },
   {
     slug: "gatehouse-auth",
@@ -487,7 +511,7 @@ export const products: Product[] = [
     released: "2026-07-15",
     version: "1.3.0",
     license: "Regular",
-    art: art("#7c3517", "#c08a3f", "#fbf1e3", "waves"),
+    art: art("#7c3517", "#c08a3f", "#fbf1e3", "waves", "p-sound-effects"),
     description:
       "A complete authentication module: passkeys with recovery codes, magic-link fallback, organisation invitations, session management with device lists and a security log your support team can read.",
     features: [
@@ -519,7 +543,7 @@ export const products: Product[] = [
       "Passkey registration",
       "Session and device list",
       "Invitation flow",
-    ]),
+    ], { images: ["p-sound-effects", "p-still-life"] }),
   },
   {
     slug: "pocket-expo",
@@ -543,7 +567,7 @@ export const products: Product[] = [
     released: "2026-08-01",
     version: "1.2.0",
     license: "Regular",
-    art: art("#1f4b52", "#4f9199", "#eaf5f5", "waves"),
+    art: art("#1f4b52", "#4f9199", "#eaf5f5", "waves", "p-travel-video"),
     description:
       "A production-shaped React Native app: local-first SQLite storage, background sync with conflict resolution, biometric unlock, push notifications and a real onboarding funnel.",
     features: [
@@ -573,7 +597,7 @@ export const products: Product[] = [
       "Home screen with offline banner",
       "Sync timeline",
       "Biometric unlock",
-    ]),
+    ], { images: ["p-travel-video", "p-city-vibes", "p-wanderer"] }),
   },
   {
     slug: "carbon-cli",
@@ -597,7 +621,7 @@ export const products: Product[] = [
     released: "2025-11-02",
     version: "1.6.0",
     license: "Regular",
-    art: art("#3a3a34", "#7a7666", "#f2f0ea", "terminal"),
+    art: art("#3a3a34", "#7a7666", "#f2f0ea", "terminal", "p-forest-mist"),
     description:
       "A CLI that generates services, routes, migrations and tests using your team's conventions. Templates are plain files, so changing your mind is a git commit, not a plugin.",
     features: [
@@ -623,7 +647,7 @@ export const products: Product[] = [
     requirements: ["Node 20+"],
     tiers: tiers(4900, undefined, { extended: 19900 }),
     changelog: [{ version: "1.6.0", date: "2026-09-14", notes: ["Monorepo alias detection"] }],
-    gallery: gallery({ from: "#3a3a34", to: "#7a7666", ink: "#f2f0ea" }, ["CLI in action", "Template structure"]),
+    gallery: gallery({ from: "#3a3a34", to: "#7a7666", ink: "#f2f0ea" }, ["CLI in action", "Template structure"], { images: ["p-forest-mist", "p-sea-cliffs"] }),
   },
   {
     slug: "quill-cms",
@@ -647,7 +671,7 @@ export const products: Product[] = [
     released: "2025-06-24",
     version: "2.0.3",
     license: "Regular",
-    art: art("#56682e", "#94a862", "#f1f5e6", "grid"),
+    art: art("#56682e", "#94a862", "#f1f5e6", "grid", "p-summit-theme"),
     description:
       "A block-based CMS with a pleasant editor, versioned drafts, scheduled publishing and a preview pipeline. Ships with the API and the admin editor — not just a schema.",
     features: [
@@ -673,7 +697,7 @@ export const products: Product[] = [
     requirements: ["Node 20+", "Postgres 15+"],
     tiers: tiers(10900, undefined, { extended: 39900 }),
     changelog: [{ version: "2.0.3", date: "2026-08-30", notes: ["Version compare view"] }],
-    gallery: gallery({ from: "#56682e", to: "#94a862", ink: "#f1f5e6" }, ["Editor with blocks", "Version history", "Preview"]),
+    gallery: gallery({ from: "#56682e", to: "#94a862", ink: "#f1f5e6" }, ["Editor with blocks", "Version history", "Preview"], { images: ["p-summit-theme", "p-morning-reflections"] }),
   },
   {
     slug: "beacon-analytics",
@@ -697,7 +721,7 @@ export const products: Product[] = [
     released: "2025-09-19",
     version: "2.2.0",
     license: "Regular",
-    art: art("#2f4858", "#62889c", "#eef4f7", "waves"),
+    art: art("#2f4858", "#62889c", "#eef4f7", "waves", "p-city-vibes"),
     description:
       "Event collection, funnels, retention cohorts and session replay scaffolding — self-hosted, cookieless and fast. The query builder is the product: compose a funnel in four clicks.",
     features: [
@@ -723,7 +747,7 @@ export const products: Product[] = [
     requirements: ["Node 20+", "ClickHouse 24+"],
     tiers: tiers(13900, undefined, { extended: 49900 }),
     changelog: [{ version: "2.2.0", date: "2026-10-06", notes: ["Cohort compare", "SDK offline retry"] }],
-    gallery: gallery({ from: "#2f4858", to: "#62889c", ink: "#eef4f7" }, ["Funnel builder", "Retention cohorts", "Event stream"]),
+    gallery: gallery({ from: "#2f4858", to: "#62889c", ink: "#eef4f7" }, ["Funnel builder", "Retention cohorts", "Event stream"], { images: ["p-city-vibes", "p-skyline-dusk", "p-flowsync"] }),
   },
   {
     slug: "ledger-billing",
@@ -747,7 +771,7 @@ export const products: Product[] = [
     released: "2026-09-05",
     version: "1.1.0",
     license: "Regular",
-    art: art("#1d3b53", "#4c7fa3", "#edf4f9", "grid"),
+    art: art("#1d3b53", "#4c7fa3", "#edf4f9", "grid", "p-golden-hour"),
     description:
       "Meter usage, price it, invoice it and chase it. A billing engine with a readable ledger, credit notes, tax handling and a dunning sequence your finance team can audit.",
     features: [
@@ -773,7 +797,7 @@ export const products: Product[] = [
     requirements: ["Node 20+", "Postgres 15+", "Stripe account"],
     tiers: tiers(16900, undefined, { extended: 64900 }),
     changelog: [{ version: "1.1.0", date: "2026-10-30", notes: ["Credit notes", "Dunning ladder config"] }],
-    gallery: gallery({ from: "#1d3b53", to: "#4c7fa3", ink: "#edf4f9" }, ["Usage dashboard", "Invoice detail", "Dunning settings"]),
+    gallery: gallery({ from: "#1d3b53", to: "#4c7fa3", ink: "#edf4f9" }, ["Usage dashboard", "Invoice detail", "Dunning settings"], { images: ["p-golden-hour", "p-corporate"] }),
   },
   /* -------------------------------------------------- free collection */
   {
@@ -798,7 +822,7 @@ export const products: Product[] = [
     released: "2025-01-08",
     version: "2.3.0",
     license: "Free",
-    art: art("#e7d9c3", "#c9b294", "#3a2f22", "grid"),
+    art: art("#e7d9c3", "#c9b294", "#3a2f22", "grid", "p-still-life"),
     description:
       "Twenty-four empty-state patterns covering first run, cleared filters, no results, permission denied and error states — copy, illustration and code included.",
     features: [
@@ -822,7 +846,7 @@ export const products: Product[] = [
       },
     ],
     changelog: [{ version: "2.3.0", date: "2026-10-15", notes: ["Eight new patterns"] }],
-    gallery: gallery({ from: "#e7d9c3", to: "#c9b294", ink: "#3a2f22" }, ["First-run state", "No results", "Permission denied"]),
+    gallery: gallery({ from: "#e7d9c3", to: "#c9b294", ink: "#3a2f22" }, ["First-run state", "No results", "Permission denied"], { images: ["p-still-life", "p-abstract-gradient"] }),
   },
   {
     slug: "data-table-hooks",
@@ -846,7 +870,7 @@ export const products: Product[] = [
     released: "2025-03-14",
     version: "1.8.0",
     license: "Free",
-    art: art("#dbe4d9", "#a9bda6", "#28352a", "grid"),
+    art: art("#dbe4d9", "#a9bda6", "#28352a", "grid", "p-calm-workspace"),
     description:
       "Six headless hooks for tables: sort, page, select, filter, expand and resize. Fully typed, fully tested, no component opinions.",
     features: [
@@ -870,7 +894,7 @@ export const products: Product[] = [
       },
     ],
     changelog: [{ version: "1.8.0", date: "2026-09-21", notes: ["Column resize hook"] }],
-    gallery: gallery({ from: "#dbe4d9", to: "#a9bda6", ink: "#28352a" }, ["Hook usage", "Selection ranges"]),
+    gallery: gallery({ from: "#dbe4d9", to: "#a9bda6", ink: "#28352a" }, ["Hook usage", "Selection ranges"], { images: ["p-calm-workspace", "p-nova-ui-kit"] }),
   },
   {
     slug: "env-doctor",
@@ -894,7 +918,7 @@ export const products: Product[] = [
     released: "2026-10-24",
     version: "1.0.0",
     license: "Free",
-    art: art("#efe2d2", "#d3b795", "#3d2c1a", "terminal"),
+    art: art("#efe2d2", "#d3b795", "#3d2c1a", "terminal", "p-nature-details"),
     description:
       "Validate environment variables at boot with Zod, print a readable diff of what's missing, and never debug a silent undefined again.",
     features: [
@@ -918,7 +942,7 @@ export const products: Product[] = [
       },
     ],
     changelog: [{ version: "1.0.0", date: "2026-10-24", notes: ["Initial release"] }],
-    gallery: gallery({ from: "#efe2d2", to: "#d3b795", ink: "#3d2c1a" }, ["Failure output", "Typed access"]),
+    gallery: gallery({ from: "#efe2d2", to: "#d3b795", ink: "#3d2c1a" }, ["Failure output", "Typed access"], { images: ["p-nature-details", "p-forest-mist"] }),
   },
   {
     slug: "motion-recipes",
@@ -942,7 +966,7 @@ export const products: Product[] = [
     released: "2024-11-30",
     version: "3.0.1",
     license: "Free",
-    art: art("#e3dcd6", "#b8a89c", "#33291f", "waves"),
+    art: art("#e3dcd6", "#b8a89c", "#33291f", "waves", "p-abstract-gradient"),
     description:
       "Thirty-two copy-paste Framer Motion recipes for drawers, lists, page transitions and micro-interactions, each with timing notes and reduced-motion fallbacks.",
     features: [
@@ -966,7 +990,7 @@ export const products: Product[] = [
       },
     ],
     changelog: [{ version: "3.0.1", date: "2026-08-12", notes: ["Framer Motion 12"] }],
-    gallery: gallery({ from: "#e3dcd6", to: "#b8a89c", ink: "#33291f" }, ["Drawer recipe", "List stagger"]),
+    gallery: gallery({ from: "#e3dcd6", to: "#b8a89c", ink: "#33291f" }, ["Drawer recipe", "List stagger"], { images: ["p-abstract-gradient", "p-happy-people"] }),
   },
   {
     slug: "schema-playground",
@@ -990,7 +1014,7 @@ export const products: Product[] = [
     released: "2025-08-19",
     version: "1.5.0",
     license: "Free",
-    art: art("#dde4ea", "#a8b8c6", "#2a3540", "grid"),
+    art: art("#dde4ea", "#a8b8c6", "#2a3540", "grid", "p-sea-cliffs"),
     description:
       "Sketch a relational schema visually, then export Drizzle definitions and a migration. Runs entirely in the browser with SQLite WASM.",
     features: [
@@ -1014,7 +1038,7 @@ export const products: Product[] = [
       },
     ],
     changelog: [{ version: "1.5.0", date: "2026-07-30", notes: ["Mermaid export"] }],
-    gallery: gallery({ from: "#dde4ea", to: "#a8b8c6", ink: "#2a3540" }, ["Visual editor", "Export dialog"]),
+    gallery: gallery({ from: "#dde4ea", to: "#a8b8c6", ink: "#2a3540" }, ["Visual editor", "Export dialog"], { images: ["p-sea-cliffs", "p-morning-reflections"] }),
   },
   {
     slug: "cron-recipes",
@@ -1038,7 +1062,7 @@ export const products: Product[] = [
     released: "2025-12-09",
     version: "1.4.0",
     license: "Free",
-    art: art("#e8e3d5", "#c3b99f", "#35301f", "terminal"),
+    art: art("#e8e3d5", "#c3b99f", "#35301f", "terminal", "p-harvest-bowl"),
     description:
       "Eighteen scheduled jobs with idempotency, locking and alerting: dunning retries, digest emails, cleanup sweeps, trial reminders and more.",
     features: [
@@ -1062,7 +1086,7 @@ export const products: Product[] = [
       },
     ],
     changelog: [{ version: "1.4.0", date: "2026-06-18", notes: ["Trial reminder jobs"] }],
-    gallery: gallery({ from: "#e8e3d5", to: "#c3b99f", ink: "#35301f" }, ["Job definitions", "Alert output"]),
+    gallery: gallery({ from: "#e8e3d5", to: "#c3b99f", ink: "#35301f" }, ["Job definitions", "Alert output"], { images: ["p-harvest-bowl", "p-corporate"] }),
   },
 ];
 
@@ -1075,6 +1099,7 @@ export const collections: Collection[] = [
     products: ["forge-saas-starter", "gatehouse-auth", "ledger-billing", "relay-api", "kiln-ui"],
     from: "#17392b",
     to: "#4b8a64",
+    src: refSrc("collection-spot-1"),
   },
   {
     slug: "operations-toolkit",
@@ -1083,6 +1108,7 @@ export const collections: Collection[] = [
     products: ["lattice-admin", "beacon-analytics", "relay-api", "ledger-billing"],
     from: "#c0592b",
     to: "#e8a078",
+    src: refSrc("collection-spot-2"),
   },
   {
     slug: "ship-faster-free",
@@ -1091,6 +1117,7 @@ export const collections: Collection[] = [
     products: ["empty-states", "data-table-hooks", "motion-recipes", "env-doctor", "cron-recipes"],
     from: "#56682e",
     to: "#a3b46b",
+    src: refSrc("collection-spot-3"),
   },
   {
     slug: "editorial-mobile",
@@ -1099,6 +1126,7 @@ export const collections: Collection[] = [
     products: ["pocket-expo", "quill-cms", "kiln-ui"],
     from: "#1f4b52",
     to: "#5f9aa2",
+    src: refSrc("collection-spot-4"),
   },
 ];
 
@@ -1352,6 +1380,7 @@ export const posts: BlogPost[] = [
     read: 6,
     from: "#17392b",
     to: "#4b8a64",
+    src: refSrc("b-design-trends"),
   },
   {
     slug: "upgrading-without-breaking-anyone",
@@ -1362,6 +1391,7 @@ export const posts: BlogPost[] = [
     read: 9,
     from: "#c0592b",
     to: "#e8a078",
+    src: refSrc("b-dashboard-template"),
   },
   {
     slug: "what-we-removed-from-forge-4",

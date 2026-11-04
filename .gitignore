@@ -39,3 +39,7 @@ screenshots/
 
 # reference captures pulled from the design source (not app assets)
 image-search/
+
+# reference imagery pulled from the design source — fetched on demand by
+# scripts/fetch-ref-images.sh, not committed (the UI falls back to generated art)
+public/img/ref/

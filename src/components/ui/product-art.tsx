@@ -10,6 +10,8 @@ export function ProductArt({
   label,
   className,
   dense,
+  src,
+  alt,
 }: {
   from: string;
   to: string;
@@ -18,13 +20,30 @@ export function ProductArt({
   label?: string;
   className?: string;
   dense?: boolean;
+  /** real cover art; falls back to the generated gradient if absent or broken */
+  src?: string;
+  alt?: string;
 }) {
+  const [failed, setFailed] = React.useState(false);
+  const showImage = Boolean(src) && !failed;
+
   return (
     <div
       className={cn("relative isolate overflow-hidden", className)}
       style={{ background: `linear-gradient(135deg, ${from} 0%, ${to} 100%)` }}
     >
-      <ArtLayer kind={kind} ink={ink} dense={dense} />
+      {showImage ? (
+        <img
+          src={src}
+          alt={alt ?? ""}
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(true)}
+          className="absolute inset-0 size-full object-cover"
+        />
+      ) : (
+        <ArtLayer kind={kind} ink={ink} dense={dense} />
+      )}
       {label && (
         <div
           className="absolute inset-x-0 bottom-0 flex items-center gap-1.5 px-3 pb-2.5 pt-8"

@@ -11,6 +11,8 @@ export interface Category {
   to: string;
   glyph: string;
   parent?: string;
+  /** reference cover image; falls back to the gradient when absent */
+  src?: string;
 }
 
 export interface Author {
@@ -58,6 +60,25 @@ export interface PricingTier {
   popular?: boolean;
 }
 
+export type ArtKind = "window" | "grid" | "terminal" | "waves";
+
+/** Fallback gradient art. When `src` is present the image wins; if it fails to
+ *  load the component falls back to the gradient rather than showing a broken
+ *  image icon. This keeps the UI intact until real assets are dropped in. */
+export interface ArtSpec {
+  from: string;
+  to: string;
+  ink: string;
+  kind: ArtKind;
+  src?: string;
+  alt?: string;
+}
+
+export interface GalleryItem extends ArtSpec {
+  id: string;
+  caption: string;
+}
+
 export interface Product {
   slug: string;
   name: string;
@@ -81,8 +102,8 @@ export interface Product {
   released: string;
   version: string;
   license: string;
-  /** art direction for the generated cover */
-  art: { from: string; to: string; ink: string; kind: "window" | "grid" | "terminal" | "waves" };
+  /** art direction for the cover — `src` swaps the generated art for a real image */
+  art: ArtSpec;
   description: string;
   features: { title: string; body: string }[];
   highlights: string[];
@@ -90,7 +111,7 @@ export interface Product {
   requirements: string[];
   tiers: PricingTier[];
   changelog: ChangelogEntry[];
-  gallery: { id: string; caption: string; from: string; to: string; ink: string; kind: "window" | "grid" | "terminal" | "waves" }[];
+  gallery: GalleryItem[];
 }
 
 export interface Collection {
@@ -100,6 +121,8 @@ export interface Collection {
   products: string[];
   from: string;
   to: string;
+  /** reference cover image; falls back to the gradient when absent */
+  src?: string;
 }
 
 export interface CartLine {
@@ -156,4 +179,6 @@ export interface BlogPost {
   read: number;
   from: string;
   to: string;
+  /** reference hero image; falls back to the gradient when absent */
+  src?: string;
 }
