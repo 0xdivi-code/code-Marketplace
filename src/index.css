@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Self-hosted variable fonts (bundled by Vite, no external requests).
+   Fraunces axes: opsz 9..144, SOFT, WONK, wght 100..900 for editorial display. */
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/fraunces/opsz.css";
+@import "@fontsource-variable/jetbrains-mono";
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ---------------------------------------------------------------- tokens */
@@ -73,9 +79,9 @@
   --color-sage: var(--sage);
   --color-gold: var(--gold);
 
-  --font-display: "Fraunces", ui-serif, Georgia, serif;
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Fraunces Variable", "Fraunces", ui-serif, Georgia, serif;
+  --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
   --radius-xs: 6px;
   --radius-sm: 10px;
@@ -114,6 +120,12 @@
     font-weight: 500;
     letter-spacing: -0.02em;
     text-wrap: balance;
+    /* Fraunces is a variable optical-size serif: let it thin its hairlines as
+       the type gets larger instead of scaling a text face up to display size. */
+    font-optical-sizing: auto;
+  }
+  .font-display {
+    font-optical-sizing: auto;
   }
   :focus-visible {
     outline: 2px solid var(--accent);
