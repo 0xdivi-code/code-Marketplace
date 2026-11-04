@@ -32,7 +32,7 @@ export default function AdminProductEditor() {
     name: existing?.name ?? "",
     tagline: existing?.tagline ?? "",
     description: existing?.description ?? "",
-    category: existing?.category ?? categories[0].slug,
+    category: existing?.category ?? categories[0]?.slug ?? "",
     stack: (existing?.stack ?? []).join(", "),
     price: ((existing?.price ?? 9900) / 100).toFixed(2),
     compareAt: existing?.compareAt ? (existing.compareAt / 100).toFixed(2) : "",

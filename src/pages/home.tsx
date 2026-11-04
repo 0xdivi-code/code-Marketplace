@@ -71,8 +71,8 @@ export default function HomePage() {
     return [...products].sort((a, b) => +new Date(b.released) - +new Date(a.released)).slice(0, 4);
   }, [tab]);
 
-    // bundle pricing is derived from the same catalogue the collection page uses
-  const bundleProducts = collections[0].products
+  // bundle pricing is derived from the same catalogue the collection page uses
+  const bundleProducts = (collections[0]?.products ?? [])
     .map((slug) => productBySlug(slug))
     .filter(Boolean) as { price: number }[];
   const bundleList = bundleProducts.reduce((n, p) => n + p.price, 0);
@@ -293,7 +293,7 @@ return (
               </div>
             </div>
             <div className="grid grid-cols-5 gap-2.5 sm:gap-3">
-              {collections[0].products.map((slug, i) => {
+              {(collections[0]?.products ?? []).map((slug, i) => {
                 const p = productBySlug(slug)!;
                 return (
                   <motion.div

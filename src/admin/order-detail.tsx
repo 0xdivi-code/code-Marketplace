@@ -34,11 +34,14 @@ const timeline = [
 
 export default function AdminOrderDetail() {
   const { id = "" } = useParams();
+  // The catalogue is hydrated from the API; on a cold open `orders` is empty
+  // for a tick, so render the empty state instead of dereferencing undefined.
   const order = orders.find((o) => o.id === id) ?? orders[0];
-  const customer = customers[orders.indexOf(order)] ?? customers[0];
-  const subtotal = order.items.reduce((n, i) => n + i.price, 0);
 
   if (!order) return <NotFoundPage />;
+
+  const customer = customers[orders.indexOf(order)] ?? customers[0];
+  const subtotal = order.items.reduce((n, i) => n + i.price, 0);
 
   return (
     <div>

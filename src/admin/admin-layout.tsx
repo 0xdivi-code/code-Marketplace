@@ -24,9 +24,12 @@ import {
   ArrowUpRight,
   Plus,
   Command,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/store";
+import { useAuth } from "@/lib/use-auth";
+import { AdminLogin } from "./admin-login";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { KilnMark } from "@/components/site/logo";
@@ -77,7 +80,33 @@ const groups: { label: string; items: NavItem[] }[] = [
   },
 ];
 
+/**
+ * Gate: the console never renders for anyone without an admin session.
+ *
+ * The cookie is httpOnly and admin-scoped, so a customer session cannot satisfy
+ * this check even if a script were injected into the marketing site.
+ */
 export function AdminLayout() {
+  const auth = useAuth();
+
+  if (auth.loading) {
+    return (
+      <div className="grid min-h-dvh place-items-center bg-paper">
+        <div className="flex items-center gap-2 text-sm text-ink-3">
+          <Loader2 className="size-4 animate-spin" /> Checking your session…
+        </div>
+      </div>
+    );
+  }
+
+  if (!auth.admin) {
+    return <AdminLogin />;
+  }
+
+  return <AdminShell />;
+}
+
+function AdminShell() {
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [searchOpen, setSearchOpen] = React.useState(false);

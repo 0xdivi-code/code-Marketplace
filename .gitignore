@@ -43,3 +43,6 @@ image-search/
 # reference imagery pulled from the design source — fetched on demand by
 # scripts/fetch-ref-images.sh, not committed (the UI falls back to generated art)
 public/img/ref/
+
+# local database + private upload storage (never committed)
+.data/

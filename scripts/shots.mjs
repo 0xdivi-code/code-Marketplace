@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const EXEC = "/tmp/chromium";
-const BASE = "http://localhost:5173";
+const BASE = process.env.SHOT_BASE || "http://localhost:5173";
 const OUT = process.argv[2] || "/tmp/shots";
 const only = process.argv[3] || null;
 fs.mkdirSync(OUT, { recursive: true });

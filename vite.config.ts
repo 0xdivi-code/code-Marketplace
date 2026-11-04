@@ -13,5 +13,14 @@ export default defineConfig({
     port: 5173,
     strictPort: false,
     allowedHosts: true,
+    proxy: {
+      // One origin in the browser: the dev server proxies API calls to Hono.
+      // This keeps auth cookies first-party and mirrors production exactly.
+      "/api": {
+        target: process.env.API_ORIGIN ?? "http://127.0.0.1:8787",
+        changeOrigin: false,
+        ws: false,
+      },
+    },
   },
 });

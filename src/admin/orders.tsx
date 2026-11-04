@@ -49,7 +49,7 @@ export default function AdminOrders() {
       key: "customer",
       header: "Customer",
       render: (o) => {
-        const c = customers[orders.indexOf(o)] ?? customers[0];
+        const c = customers[orders.indexOf(o)] ?? customers[0];  // empty until the API hydrates
         return (
           <div className="flex items-center gap-2">
             <Avatar initials={c.initials} size="sm" />

@@ -15,18 +15,26 @@ export interface Filters {
 }
 
 /** Highest price in the catalogue, rounded up to a clean slider bound. */
-export const PRICE_MAX = Math.ceil(Math.max(...products.map((p) => p.price)) / 1000) * 1000;
+/** Highest price in the catalogue, rounded up to the nearest $10. Computed on
+ *  demand so it is correct after the catalogue hydrates from the API. */
+export function priceCeiling(list = products): number {
+  const max = list.reduce((n, p) => Math.max(n, p.price), 0);
+  return Math.max(1000, Math.ceil(max / 1000) * 1000);
+}
+
+/** @deprecated use priceCeiling() — kept for callers that read it at render. */
+export const PRICE_MAX = 20000;
 
 export const initialFilters: Filters = {
   categories: [],
   stacks: [],
-  price: [0, PRICE_MAX],
+  price: [0, priceCeiling()],
   minRating: 0,
   licenses: [],
   freeOnly: false,
 };
 
-const allStacks = Array.from(new Set(products.flatMap((p) => p.stack))).sort();
+export const allStacks = () => Array.from(new Set(products.flatMap((p) => p.stack))).sort();
 
 export function FilterRail({
   filters,
@@ -111,7 +119,7 @@ export function FilterRail({
 
       <FilterGroup title="Stack">
         <div className="flex flex-wrap gap-1.5">
-          {allStacks.map((s) => {
+          {allStacks().map((s) => {
             const on = filters.stacks.includes(s);
             return (
               <button
@@ -201,7 +209,11 @@ export function applyFilters(list: typeof products, f: Filters, query = "") {
     if (f.stacks.length && !f.stacks.some((s) => p.stack.includes(s))) return false;
     if (f.freeOnly && !p.free) return false;
     if (f.minRating && p.rating < f.minRating) return false;
-    if (p.price / 100 < f.price[0] || p.price / 100 > f.price[1]) return false;
+    const priceUsd = p.price / 100;
+    const [lo, hi] = f.price;
+    if (Number.isFinite(lo) && priceUsd < lo) return false;
+    // An open-ended ceiling (null, undefined or Infinity) means "no limit".
+    if (typeof hi === "number" && Number.isFinite(hi) && priceUsd > hi) return false;
     if (f.licenses.length && !p.tiers.some((t) => f.licenses.includes(t.license))) return false;
     if (q) {
       const hay = `${p.name} ${p.tagline} ${p.stack.join(" ")} ${p.description}`.toLowerCase();

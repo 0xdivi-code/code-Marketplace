@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { SiteLayout } from "@/components/site/site-layout";
+import { CatalogBoot } from "@/components/site/catalog-boot";
+import { useCatalog } from "@/lib/catalog-store";
 import HomePage from "@/pages/home";
 import BrowsePage from "@/pages/browse";
 import CategoryPage from "@/pages/category";
@@ -44,7 +46,12 @@ import AdminSettings from "@/admin/settings";
 import AdminActivity from "@/admin/activity";
 
 export default function App() {
+  /** Subscribe at the root so every route re-renders when the catalogue
+   *  hydrates from the API or the admin panel changes something. */
+  useCatalog();
+
   return (
+    <CatalogBoot>
     <Routes>
       <Route element={<SiteLayout />}>
         <Route index element={<HomePage />} />
@@ -100,5 +107,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Route>
     </Routes>
+    </CatalogBoot>
   );
 }

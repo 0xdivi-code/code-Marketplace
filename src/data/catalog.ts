@@ -11,9 +11,19 @@ import type {
   Product,
   Review,
 } from "./types";
+import { state, publishedProducts, onCatalogLoad } from "../lib/catalog-store";
+
+/**
+ * The storefront catalogue.
+ *
+ * These arrays used to be hard-coded mock data. They are now live views onto the
+ * database: `<CatalogBoot>` fetches `/api/catalog` once, `saveCatalog()` from the
+ * admin panel pushes changes, and every reader below stays synchronous so no
+ * component had to be rewritten. Blog posts remain static editorial content.
+ */
 
 /* ------------------------------------------------------------------ categories */
-export const categories: Category[] = [
+const seed_categories: Category[] = [
   {
     slug: "saas-starters",
     name: "SaaS Starters",
@@ -89,7 +99,7 @@ export const categories: Category[] = [
 ];
 
 /* ------------------------------------------------------------------ authors */
-export const authors: Author[] = [
+const seed_authors: Author[] = [
   {
     slug: "kiln-studio",
     name: "Kiln Studio",
@@ -232,7 +242,7 @@ const gallery = (
 };
 
 /* ------------------------------------------------------------------ products */
-export const products: Product[] = [
+const seed_products: Product[] = [
   {
     slug: "forge-saas-starter",
     name: "Forge — SaaS Starter",
@@ -1091,7 +1101,7 @@ export const products: Product[] = [
 ];
 
 /* ------------------------------------------------------------------ collections */
-export const collections: Collection[] = [
+const seed_collections: Collection[] = [
   {
     slug: "the-launch-stack",
     name: "The Launch Stack",
@@ -1131,7 +1141,7 @@ export const collections: Collection[] = [
 ];
 
 /* ------------------------------------------------------------------ reviews */
-export const reviews: Review[] = [
+const seed_reviews: Review[] = [
   {
     id: "r1",
     productSlug: "forge-saas-starter",
@@ -1279,7 +1289,7 @@ export const reviews: Review[] = [
 ];
 
 /* ------------------------------------------------------------------ customers + orders */
-export const customers: Customer[] = [
+const seed_customers: Customer[] = [
   { id: "c1", name: "Marcus Adeyemi", email: "marcus@brightlane.io", initials: "MA", orders: 4, spent: 42700, joined: "2025-02-11", status: "active", country: "Nigeria" },
   { id: "c2", name: "Ines Cordeiro", email: "ines@cordeiro.dev", initials: "IC", orders: 2, spent: 26800, joined: "2025-06-03", status: "active", country: "Portugal" },
   { id: "c3", name: "Tobi Balogun", email: "tobi@studio.ng", initials: "TB", orders: 1, spent: 14900, joined: "2026-01-19", status: "active", country: "Nigeria" },
@@ -1296,7 +1306,7 @@ export const customers: Customer[] = [
   { id: "c14", name: "Gabriel Silva", email: "gabriel@silva.br", initials: "GS", orders: 1, spent: 7900, joined: "2026-07-16", status: "blocked", country: "Brazil" },
 ];
 
-export const orders: Order[] = [
+const seed_orders: Order[] = [
   {
     id: "KL-10482",
     date: "2026-10-30",
@@ -1350,14 +1360,14 @@ export const orders: Order[] = [
   },
 ];
 
-export const coupons: Coupon[] = [
+const seed_coupons: Coupon[] = [
   { code: "LAUNCH25", kind: "percent", value: 25, uses: 184, limit: 500, expires: "2026-12-31", status: "active" },
   { code: "FREESHIP", kind: "fixed", value: 1000, uses: 62, limit: 200, expires: "2026-11-30", status: "active" },
   { code: "BLACKFRIDAY", kind: "percent", value: 40, uses: 0, limit: 1000, expires: "2026-11-28", status: "scheduled" },
   { code: "WELCOME10", kind: "percent", value: 10, uses: 940, limit: 1000, expires: "2026-10-01", status: "expired" },
 ];
 
-export const activity: ActivityEntry[] = [
+const seed_activity: ActivityEntry[] = [
   { id: "a1", actor: "Kiln Studio", action: "published a new version", target: "Ledger — Billing Engine v1.1.0", at: "12 minutes ago", kind: "product" },
   { id: "a2", actor: "System", action: "captured payment for order", target: "KL-10482", at: "48 minutes ago", kind: "order" },
   { id: "a3", actor: "Kiln Studio", action: "updated the hero banner", target: "Homepage · Winter drop", at: "2 hours ago", kind: "content" },
@@ -1370,7 +1380,7 @@ export const activity: ActivityEntry[] = [
   { id: "a10", actor: "System", action: "failed webhook, retried", target: "stripe · invoice.paid", at: "3 days ago", kind: "order" },
 ];
 
-export const posts: BlogPost[] = [
+const seed_posts: BlogPost[] = [
   {
     slug: "pricing-a-starter-kit",
     title: "Pricing a starter kit in 2026",
@@ -1405,11 +1415,29 @@ export const posts: BlogPost[] = [
   },
 ];
 
+/* ------------------------------------------------------- live export surface */
+
+/** Public catalogue — never shows drafts, reviews or archived rows. */
+export const products: Product[] = publishedProducts();
+
+export const categories: Category[] = state.categories;
+export const authors: Author[] = state.authors;
+export const reviews: Review[] = state.reviews;
+export const collections: Collection[] = state.collections;
+
+/** Admin-only collections (the public site never imports these). */
+export const customers: Customer[] = state.customers;
+export const orders: Order[] = state.orders;
+export const coupons: Coupon[] = state.coupons;
+export const activity: ActivityEntry[] = state.activity;
+
+export const posts: BlogPost[] = seed_posts;
+
 /* ------------------------------------------------------------------ derived helpers */
-export const productBySlug = (slug: string) => products.find((p) => p.slug === slug);
-export const authorBySlug = (slug: string) => authors.find((a) => a.slug === slug);
-export const categoryBySlug = (slug: string) => categories.find((c) => c.slug === slug);
-export const reviewsFor = (slug: string) => reviews.filter((r) => r.productSlug === slug);
+export const productBySlug = (slug: string) => state.products.find((p) => p.slug === slug);
+export const authorBySlug = (slug: string) => state.authors.find((a) => a.slug === slug);
+export const categoryBySlug = (slug: string) => state.categories.find((c) => c.slug === slug);
+export const reviewsFor = (slug: string) => state.reviews.filter((r) => r.productSlug === slug);
 
 export const featuredProducts = products.filter((p) => p.featured);
 export const trendingProducts = products.filter((p) => p.trending);
@@ -1418,7 +1446,46 @@ export const paidProducts = products.filter((p) => !p.free);
 
 export const stats = {
   products: products.length,
-  authors: authors.length,
+  authors: state.authors.length,
   rating: 4.8,
   sales: products.reduce((n, p) => n + p.sales, 0),
 };
+
+/** Re-publish the live arrays after the store hydrates or the admin writes. */
+export function saveCatalog() {
+  const published = publishedProducts();
+  products.length = 0;
+  products.push(...published);
+
+  replace(categories, state.categories);
+  replace(authors, state.authors);
+  replace(reviews, state.reviews);
+  replace(collections, state.collections);
+  replace(customers, state.customers);
+  replace(orders, state.orders);
+  replace(coupons, state.coupons);
+  replace(activity, state.activity);
+
+  featuredProducts.length = 0;
+  featuredProducts.push(...products.filter((p) => p.featured));
+  trendingProducts.length = 0;
+  trendingProducts.push(...products.filter((p) => p.trending));
+  freeProducts.length = 0;
+  freeProducts.push(...products.filter((p) => p.free));
+  paidProducts.length = 0;
+  paidProducts.push(...products.filter((p) => !p.free));
+
+  stats.products = products.length;
+  stats.authors = authors.length;
+  stats.sales = products.reduce((n, p) => n + p.sales, 0);
+}
+
+/** In-place so imported bindings stay valid. */
+function replace<T>(target: T[], next: T[]) {
+  target.length = 0;
+  target.push(...next);
+}
+
+// Republish whenever the store hydrates from the API or an admin write lands.
+onCatalogLoad(saveCatalog);
+saveCatalog();

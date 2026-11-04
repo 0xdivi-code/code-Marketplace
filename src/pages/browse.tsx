@@ -17,6 +17,7 @@ import { SortMenu } from "@/components/site/sort-menu";
 import { products, categories } from "@/data/catalog";
 import { cn } from "@/lib/utils";
 import { Pagination } from "@/components/ui/disclosure";
+import { useCatalogVersion } from "@/lib/catalog-store";
 
 const PER_PAGE = 9;
 
@@ -46,9 +47,12 @@ export default function BrowsePage() {
     setPage(1);
   }, [sort, query]);
 
+  // `catalogVersion` forces re-filtering when the DB catalogue arrives, since
+  // the exported `products` array is mutated in place rather than replaced.
+  const catalogVersion = useCatalogVersion();
   const filtered = React.useMemo(
     () => sortProducts(applyFilters(products, filters, query), sort),
-    [filters, sort, query],
+    [filters, sort, query, catalogVersion],
   );
   const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const visible = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
