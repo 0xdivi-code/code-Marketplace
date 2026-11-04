@@ -14,6 +14,9 @@ Source: https://github.com/morluto/rea (branch `main`, commit fetched 2026-11-04
 | `/home/user/.tools/bootstrap-rea.sh` | Idempotent rebuild script (rerun after a fresh sandbox). |
 | `/home/user/.agents/skills/reverse-engineer-anything` | REA workflow skill installed by `rea setup`. |
 
+The source build's generated `skills/` artifact was produced with
+`npm run artifacts:skills`, which `rea setup` needs when `rea` runs from source.
+
 ## Use it
 
 ```bash
@@ -40,11 +43,16 @@ rea setup                       # detects agents (Claude Code, Codex, Cursor, ..
 rea mcp add --agent claude-code
 ```
 
-The MCP server command is:
+MCP config (verified handshake: protocol `2025-11-25`, 234 tools):
 
-```bash
-/home/user/.tools/node24/node_modules/node-linux-x64/bin/node /home/user/rea/scripts/rea.mjs
+```json
+{
+  "command": "/home/user/.tools/node24/node_modules/node-linux-x64/bin/node",
+  "args": ["/home/user/rea/scripts/rea.mjs", "--mcp"]
+}
 ```
+
+`rea mcp doctor` reports `healthy: true` for this exact pair.
 
 (For a clean end-user install instead of a source build, use
 `npx rea-agents setup` or `npm install --global rea-agents` on Node 24.22.1+.)
