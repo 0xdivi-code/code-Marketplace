@@ -16,6 +16,7 @@ import { PageHeader } from "./admin-layout";
 import { Panel } from "./ui";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { RefImage } from "@/components/ui/ref-image";
 import { Field, Input, Textarea, NativeSelect, Switch, Checkbox } from "@/components/ui/field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/disclosure";
 import { ProductArt } from "@/components/ui/product-art";
@@ -404,7 +405,17 @@ export default function AdminProductEditor() {
                   </div>
                   {(existing?.gallery ?? []).slice(0, 4).map((g) => (
                     <div key={g.id} className="relative overflow-hidden rounded-md border border-line">
-                      <ProductArt {...g} className="aspect-square w-full" />
+                      {/*
+                       * Gradient as the floor, real screenshot on top — the same
+                       * layering the storefront uses. Rendering ProductArt alone
+                       * showed generated art for every gallery slot, even when
+                       * the row had real image paths, so an owner could never see
+                       * what their gallery actually contained.
+                       */}
+                      <span className="relative block aspect-square w-full">
+                        <ProductArt {...g} className="size-full" />
+                        {g.src && <RefImage src={g.src} alt="" />}
+                      </span>
                       <button className="absolute right-1 top-1 grid size-5 place-items-center rounded bg-black/40 text-white">
                         <Trash2 className="size-2.5" />
                       </button>

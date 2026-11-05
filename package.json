@@ -26,7 +26,9 @@
     "check:images": "node scripts/check-ref-images.mjs",
     "fetch:images": "bash scripts/fetch-ref-images.sh",
     "art:import": "node scripts/import-artwork.mjs",
-    "art:report": "node scripts/report-artwork.mjs"
+    "art:report": "node scripts/report-artwork.mjs",
+    "art:projects": "node scripts/build-project-images.mjs",
+    "db:add-products": "tsx server/scripts/add-project-products.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.15",

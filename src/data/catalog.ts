@@ -1,4 +1,5 @@
 import { refSrc } from "@/data/ref-images";
+import { projectProducts } from "@/data/project-catalog";
 import type {
   ActivityEntry,
   Author,
@@ -243,6 +244,8 @@ const gallery = (
 
 /* ------------------------------------------------------------------ products */
 const seed_products: Product[] = [
+  ...projectProducts,
+
   {
     slug: "forge-saas-starter",
     name: "Forge — SaaS Starter",
