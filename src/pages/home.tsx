@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
-  ArrowUpRight,
   BadgeCheck,
   RefreshCw,
   ShieldCheck,
@@ -18,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SectionHeading } from "@/components/ui/card";
 import { ProductCard } from "@/components/site/product-card";
+import { CategoryTile } from "@/components/site/category-tile";
 import { ProductArt } from "@/components/ui/product-art";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/disclosure";
 import {
@@ -156,58 +156,15 @@ return (
               </Button>
             }
           />
-          <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-            {categories.map((c, i) => {
-              const items = products.filter((p) => p.category === c.slug);
-              return (
-                <motion.div
-                  key={c.slug}
-                  initial={{ opacity: 0, y: 16 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: "-60px" }}
-                  transition={{ duration: 0.5, delay: i * 0.05, ease }}
-                >
-                  <Link
-                    to={`/category/${c.slug}`}
-                    className="group relative block overflow-hidden rounded-md border border-line"
-                  >
-                    <div
-                      className="relative aspect-[5/3] overflow-hidden"
-                      style={{ background: `linear-gradient(135deg, ${c.from}, ${c.to})` }}
-                    >
-                      {c.src ? (
-                        <>
-                          <RefImage src={c.src} hover />
-                          {/* keeps the label legible over arbitrary photography */}
-                          <div className="absolute inset-0 bg-gradient-to-t from-[#14120f]/80 via-[#14120f]/20 to-transparent" />
-                        </>
-                      ) : (
-                        <svg
-                          viewBox="0 0 300 180"
-                          className="absolute inset-0 size-full opacity-40 transition-transform duration-700 group-hover:scale-105"
-                          aria-hidden
-                        >
-                          <circle cx="240" cy="40" r="60" fill="white" opacity="0.08" />
-                          <circle cx="60" cy="150" r="44" fill="white" opacity="0.06" />
-                          <path d="M0 130 Q 75 100 150 130 T 300 120" stroke="white" strokeWidth="1" fill="none" opacity="0.25" />
-                        </svg>
-                      )}
-                      <div className="absolute inset-0 flex flex-col justify-end p-4">
-                        <span className="label-mono text-[0.5rem] text-white/60">
-                          {items.length} item{items.length === 1 ? "" : "s"}
-                        </span>
-                        <span className="mt-0.5 flex items-center justify-between gap-2">
-                          <span className="font-display text-[1.0625rem] leading-tight text-white">
-                            {c.name}
-                          </span>
-                          <ArrowUpRight className="size-4 shrink-0 text-white/70 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                </motion.div>
-              );
-            })}
+          <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 lg:grid-cols-8">
+            {categories.map((c, i) => (
+              <CategoryTile
+                key={c.slug}
+                category={c}
+                count={products.filter((p) => p.category === c.slug).length}
+                index={i}
+              />
+            ))}
           </div>
         </section>
       )}
@@ -227,7 +184,7 @@ return (
               </Button>
             }
           />
-          <div className="mt-8 grid grid-cols-1 gap-x-5 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5">
             {trendingProducts.slice(0, 8).map((p, i) => (
               <ProductCard key={p.slug} product={p} index={i} />
             ))}
@@ -290,7 +247,7 @@ return (
           {["newest", "bestselling", "rating"].map((key) => (
             <TabsContent key={key} value={key} className="mt-8">
               {tab === key && (
-                <div className="grid grid-cols-1 gap-x-5 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5">
                   {discover.map((p, i) => (
                     <ProductCard key={p.slug} product={p} index={i} />
                   ))}

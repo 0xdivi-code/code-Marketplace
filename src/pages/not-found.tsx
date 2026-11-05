@@ -32,7 +32,7 @@ export default function NotFoundPage() {
 
       <div className="mt-14 border-t border-line pt-8">
         <h2 className="mb-5 text-[1.25rem]">Popular right now</h2>
-        <div className="grid grid-cols-2 gap-x-5 gap-y-8 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5">
           {trendingProducts.slice(0, 4).map((p, i) => (
             <ProductCard key={p.slug} product={p} index={i} />
           ))}
