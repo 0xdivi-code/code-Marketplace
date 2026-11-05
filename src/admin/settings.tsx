@@ -41,6 +41,8 @@ export default function AdminSettings() {
   const [twoFactor, setTwoFactor] = React.useState<{ secret: string; uri: string } | null>(null);
   const [code, setCode] = React.useState("");
   const [enrolling, setEnrolling] = React.useState(false);
+  const [disablePassword, setDisablePassword] = React.useState("");
+  const [showDisable, setShowDisable] = React.useState(false);
 
   React.useEffect(() => {
     void (async () => {
@@ -92,6 +94,22 @@ export default function AdminSettings() {
       setTwoFactor(res);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Could not start 2FA setup.");
+    } finally {
+      setEnrolling(false);
+    }
+  }
+
+  async function disableTwoFactor() {
+    setEnrolling(true);
+    try {
+      await api.post("/admin/auth/2fa/disable", { password: disablePassword });
+      toast.success("Two-factor turned off", { description: "You will sign in with a password alone." });
+      setDisablePassword("");
+      setShowDisable(false);
+      const auth = await api.get<AdminMe>("/admin/auth/me");
+      setMe(auth.user);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not turn 2FA off.");
     } finally {
       setEnrolling(false);
     }
@@ -467,6 +485,45 @@ export default function AdminSettings() {
                     {me?.totpEnabledAt ? "On" : "Off"}
                   </Badge>
                 </div>
+
+                {me?.totpEnabledAt && !showDisable && (
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    className="h-8"
+                    onClick={() => setShowDisable(true)}
+                  >
+                    Turn off two-factor
+                  </Button>
+                )}
+
+                {me?.totpEnabledAt && showDisable && (
+                  <div className="space-y-2 rounded-sm border border-line bg-surface-2/50 p-3">
+                    <p className="text-[0.625rem] text-ink-2">
+                      Confirm your password to remove the second factor. Your recovery codes stop working.
+                    </p>
+                    <div className="flex gap-2">
+                      <Input
+                        type="password"
+                        value={disablePassword}
+                        onChange={(e) => setDisablePassword(e.target.value)}
+                        placeholder="Current password"
+                        className="h-9"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={enrolling || !disablePassword}
+                        onClick={() => void disableTwoFactor()}
+                      >
+                        Turn off
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setShowDisable(false)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 {!me?.totpEnabledAt && !twoFactor && (
                   <Button size="xs" variant="outline" className="h-8" disabled={enrolling} onClick={() => void beginTwoFactor()}>

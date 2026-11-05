@@ -341,6 +341,37 @@ admin.get("/me", async (c) => {
 
 /* -------------------------------------------------------------- 2FA setup */
 
+/**
+ * Turning 2FA off needs the current password — a hijacked session should not be
+ * able to strip the second factor off the account.
+ */
+admin.post(
+  "/2fa/disable",
+  zValidator("json", z.object({ password: z.string().min(1) })),
+  async (c) => {
+    const user = await currentAdmin(c);
+    if (!user) return c.json({ error: "Not signed in" }, 401);
+    const { verifyPassword } = await import("../lib/crypto");
+    if (!(await verifyPassword(c.req.valid("json").password, user.passwordHash))) {
+      return c.json({ error: "That password is not right." }, 401);
+    }
+    const db = getDb();
+    await db
+      .update(t.users)
+      .set({ totpSecret: null, totpEnabledAt: null, recoveryCodes: [] })
+      .where(eq(t.users.id, user.id));
+    await logActivity({
+      actor: user.email,
+      action: "disabled two-factor authentication",
+      target: user.email,
+      kind: "auth",
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true });
+  },
+);
+
+
 admin.post("/2fa/setup", async (c) => {
   const user = await currentAdmin(c);
   if (!user) return c.json({ error: "Not signed in" }, 401);
