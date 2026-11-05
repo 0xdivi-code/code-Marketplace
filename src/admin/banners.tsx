@@ -1,39 +1,131 @@
 import * as React from "react";
-import { Plus, GripVertical, Eye, Pencil, Trash2, Monitor, Tablet, Smartphone, Image as ImageIcon } from "lucide-react";
+import { Plus, Eye, Trash2, Monitor, Tablet, Smartphone } from "lucide-react";
 import { PageHeader } from "./admin-layout";
 import { Panel } from "./ui";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Field, Input, Textarea, Switch, NativeSelect } from "@/components/ui/field";
+import { Field, Input, Textarea, Switch } from "@/components/ui/field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/disclosure";
 import { ProductArt } from "@/components/ui/product-art";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { api, ApiError } from "@/lib/api";
 
-const blocks = [
-  { id: "hero", name: "Hero banner", type: "Hero", status: "live", note: "Headline, search, product preview" },
-  { id: "promise", name: "Promise strip", type: "Features", status: "live", note: "4 value props" },
-  { id: "cats", name: "Category grid", type: "Categories", status: "live", note: "8 tiles" },
-  { id: "trending", name: "Trending row", type: "Products", status: "live", note: "8 products · auto" },
-  { id: "promo", name: "Promo pair", type: "Banners", status: "live", note: "New drops + free" },
-  { id: "collection", name: "Featured collection", type: "Collection", status: "live", note: "The Launch Stack" },
-  { id: "free", name: "Free collection", type: "Products", status: "live", note: "3 items" },
-  { id: "studio", name: "Studio editorial", type: "Editorial", status: "live", note: "Image + stats" },
-  { id: "journal", name: "Journal", type: "Blog", status: "live", note: "3 posts" },
-  { id: "faq", name: "FAQ + newsletter", type: "Custom", status: "draft", note: "Newsletter capture" },
-];
+interface Section {
+  id: string;
+  key: string;
+  label: string;
+  enabled: boolean;
+  position: number;
+}
 
-const announcements = [
-  { text: "New drop: Ledger — Billing Engine v1.1", active: true, link: "/item/ledger-billing" },
-  { text: "Black Friday: 40% off with BLACKFRIDAY", active: false, link: "/browse" },
-];
+interface Announcement {
+  id: string;
+  text: string;
+  href: string | null;
+  active: boolean;
+  position: number;
+}
+
+interface HeroCopy {
+  headline: string;
+  sub: string;
+}
 
 export default function AdminBanners() {
   const [device, setDevice] = React.useState("desktop");
-  const [headline, setHeadline] = React.useState("Production-ready code you can read.");
-  const [sub, setSub] = React.useState(
-    "Starters, dashboards and developer tools from a three-person studio.",
-  );
+  const [sections, setSections] = React.useState<Section[]>([]);
+  const [announcements, setAnnouncements] = React.useState<Announcement[]>([]);
+  const [hero, setHero] = React.useState<HeroCopy>({ headline: "", sub: "" });
+  const [loading, setLoading] = React.useState(true);
+  const [dirty, setDirty] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+  const [newText, setNewText] = React.useState("");
+  const headline = hero.headline;
+  const sub = hero.sub;
+
+  const load = React.useCallback(async () => {
+    try {
+      const res = await api.get<{
+        sections: Section[];
+        announcements: Announcement[];
+        settings: Record<string, unknown>;
+      }>("/admin/homepage");
+      setSections(res.sections);
+      setAnnouncements(res.announcements);
+      const stored = (res.settings.hero ?? {}) as Partial<HeroCopy>;
+      setHero({
+        headline: stored.headline ?? "Production-ready code you can read.",
+        sub: stored.sub ?? "",
+      });
+      setDirty(false);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not load the homepage.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function toggleSection(section: Section) {
+    try {
+      await api.patch(`/admin/homepage/sections/${section.key}`, { enabled: !section.enabled });
+      toast.success(section.enabled ? `“${section.label}” hidden` : `“${section.label}” shown`, {
+        description: "The storefront reflects this on the next load.",
+      });
+      await load();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "That change did not stick.");
+    }
+  }
+
+  async function saveHero() {
+    setSaving(true);
+    try {
+      await api.patch("/admin/settings", { values: { hero: { ...hero } } });
+      setDirty(false);
+      toast.success("Hero copy saved", { description: "Live on the storefront now." });
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not save the hero copy.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function activateAnnouncement(a: Announcement) {
+    try {
+      await api.patch(`/admin/announcements/${a.id}`, { active: !a.active });
+      await load();
+      toast.success(a.active ? "Announcement hidden" : "Announcement live");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "That change did not stick.");
+    }
+  }
+
+  async function addAnnouncement() {
+    if (newText.trim().length < 4) return toast.error("Write the announcement first.");
+    try {
+      await api.post("/admin/announcements", { text: newText.trim(), active: true });
+      setNewText("");
+      await load();
+      toast.success("Announcement published");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not publish that.");
+    }
+  }
+
+  async function removeAnnouncement(a: Announcement) {
+    try {
+      await api.del(`/admin/announcements/${a.id}`);
+      await load();
+      toast.success("Announcement removed");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not remove that.");
+    }
+  }
 
   return (
     <div>
@@ -47,8 +139,8 @@ export default function AdminBanners() {
                 <Eye className="size-3.5" /> View live
               </a>
             </Button>
-            <Button size="xs" className="h-8" onClick={() => toast.success("Homepage published")}>
-              Publish changes
+            <Button size="xs" className="h-8" disabled={saving || !dirty} onClick={() => void saveHero()}>
+              {saving ? "Saving…" : dirty ? "Publish changes" : "Published"}
             </Button>
           </>
         }
@@ -58,49 +150,57 @@ export default function AdminBanners() {
         <div className="space-y-3">
           <Panel
             title="Sections"
-            description="Drag to reorder the homepage"
-            action={
-              <Button variant="outline" size="xs" className="h-7">
-                <Plus className="size-3" /> Add
-              </Button>
-            }
+            description={loading ? "Loading…" : `${sections.filter((x) => x.enabled).length} of ${sections.length} shown`}
             bodyClassName="divide-y divide-line"
           >
-            {blocks.map((b) => (
+            {sections.map((b) => (
               <div key={b.id} className="flex items-center gap-2 px-3 py-2 hover:bg-surface-2/40">
-                <GripVertical className="size-3.5 shrink-0 cursor-grab text-ink-3" />
+                <span className="w-4 shrink-0 font-mono text-[0.5625rem] text-ink-3">{b.position + 1}</span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[0.75rem] font-medium">{b.name}</p>
-                  <p className="truncate text-[0.5625rem] text-ink-3">{b.note}</p>
+                  <p className="truncate text-[0.75rem] font-medium">{b.label}</p>
+                  <p className="truncate font-mono text-[0.5625rem] text-ink-3">{b.key}</p>
                 </div>
-                <Badge variant={b.status === "live" ? "success" : "neutral"} size="sm">
-                  {b.status}
+                <Badge variant={b.enabled ? "success" : "neutral"} size="sm">
+                  {b.enabled ? "live" : "hidden"}
                 </Badge>
-                <div className="flex shrink-0 items-center">
-                  <button className="grid size-6 place-items-center rounded text-ink-3 hover:text-ink" aria-label="Edit">
-                    <Pencil className="size-3" />
-                  </button>
-                  <button className="grid size-6 place-items-center rounded text-ink-3 hover:text-red-600" aria-label="Delete">
-                    <Trash2 className="size-3" />
-                  </button>
-                </div>
+                <Switch checked={b.enabled} onCheckedChange={() => void toggleSection(b)} />
               </div>
             ))}
           </Panel>
 
           <Panel title="Announcement bar" bodyClassName="space-y-3 p-4">
+            {announcements.length === 0 && (
+              <p className="text-[0.6875rem] text-ink-3">No announcements. The bar is hidden.</p>
+            )}
             {announcements.map((a) => (
-              <div key={a.text} className="rounded-sm border border-line p-2.5">
+              <div key={a.id} className="rounded-sm border border-line p-2.5">
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-[0.6875rem] leading-snug">{a.text}</p>
-                  <Switch defaultChecked={a.active} />
+                  <Switch checked={a.active} onCheckedChange={() => void activateAnnouncement(a)} />
                 </div>
-                <p className="mt-1 font-mono text-[0.5625rem] text-ink-3">{a.link}</p>
+                <div className="mt-1 flex items-center gap-2">
+                  <p className="font-mono text-[0.5625rem] text-ink-3">{a.href ?? "no link"}</p>
+                  <button
+                    onClick={() => void removeAnnouncement(a)}
+                    className="ml-auto text-ink-3 hover:text-red-600"
+                    aria-label="Delete announcement"
+                  >
+                    <Trash2 className="size-3" />
+                  </button>
+                </div>
               </div>
             ))}
-            <Button variant="outline" size="xs" className="h-7 w-full">
-              <Plus className="size-3" /> New announcement
-            </Button>
+            <div className="flex gap-2">
+              <Input
+                value={newText}
+                onChange={(e) => setNewText(e.target.value)}
+                placeholder="New drop: …"
+                className="h-8 text-[0.75rem]"
+              />
+              <Button variant="outline" size="xs" className="h-8 shrink-0" onClick={() => void addAnnouncement()}>
+                <Plus className="size-3" /> Add
+              </Button>
+            </div>
           </Panel>
         </div>
 
@@ -140,7 +240,7 @@ export default function AdminBanners() {
             >
               <div className="flex items-center gap-1 overflow-hidden border-b border-line bg-brand px-2 py-1">
                 <span className="min-w-0 flex-1 truncate text-[0.4375rem] text-brand-ink">
-                  {announcements[0].text}
+                  {announcements.find((a) => a.active)?.text ?? announcements[0]?.text ?? "Announcement bar"}
                 </span>
               </div>
               <div className="flex items-center justify-between border-b border-line px-2 py-1.5">
@@ -187,47 +287,37 @@ export default function AdminBanners() {
           <div className="grid gap-3 lg:grid-cols-2">
             <Panel title="Hero copy" bodyClassName="space-y-3 p-4">
               <Field label="Headline" htmlFor="hl">
-                <Input id="hl" value={headline} onChange={(e) => setHeadline(e.target.value)} />
+                <Input
+                  id="hl"
+                  value={headline}
+                  onChange={(e) => {
+                    setHero((h) => ({ ...h, headline: e.target.value }));
+                    setDirty(true);
+                  }}
+                />
               </Field>
               <Field label="Subheadline" htmlFor="sub">
-                <Textarea id="sub" value={sub} onChange={(e) => setSub(e.target.value)} className="min-h-16" />
+                <Textarea
+                  id="sub"
+                  value={sub}
+                  onChange={(e) => {
+                    setHero((h) => ({ ...h, sub: e.target.value }));
+                    setDirty(true);
+                  }}
+                  className="min-h-16"
+                />
               </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Primary CTA" htmlFor="cta1">
-                  <Input id="cta1" defaultValue="Browse all code" />
-                </Field>
-                <Field label="Secondary CTA" htmlFor="cta2">
-                  <Input id="cta2" defaultValue="See free items" />
-                </Field>
-              </div>
             </Panel>
 
-            <Panel title="Banner slots" bodyClassName="space-y-2 p-4">
-              {[
-                { l: "Leaderboard", s: "728×90 · above footer" },
-                { l: "Feature card A", s: "640×420 · promo pair" },
-                { l: "Feature card B", s: "640×420 · promo pair" },
-              ].map((b) => (
-                <div key={b.l} className="flex items-center gap-2 rounded-sm border border-line p-2">
-                  <span className="grid size-8 place-items-center rounded bg-surface-2">
-                    <ImageIcon className="size-3.5 text-ink-3" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[0.6875rem] font-medium">{b.l}</p>
-                    <p className="text-[0.5625rem] text-ink-3">{b.s}</p>
-                  </div>
-                  <Button variant="ghost" size="xs" className="h-6">
-                    Replace
-                  </Button>
-                </div>
-              ))}
-              <Field label="Theme preset" htmlFor="theme">
-                <NativeSelect id="theme" className="h-9">
-                  <option>Kiln editorial (warm)</option>
-                  <option>Kiln night (deep green)</option>
-                  <option>Kiln print (paper)</option>
-                </NativeSelect>
-              </Field>
+            <Panel title="How this works" bodyClassName="space-y-2 p-4 text-[0.6875rem] leading-relaxed text-ink-2">
+              <p>
+                Each section below is a real block on the homepage. Switching one off removes it for every
+                visitor — the page reads this list on load.
+              </p>
+              <p>
+                Hero copy saves to the <code className="font-mono text-[0.625rem]">hero</code> store setting
+                the homepage renders, so a sentence change goes live without a deploy.
+              </p>
             </Panel>
           </div>
         </div>
