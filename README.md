@@ -56,9 +56,41 @@ The admin console lives at `/admin/login`.
 | `npm run typecheck:server` | Typecheck `server/` |
 | `npm run test:payments` | 22-case payment/delivery suite |
 | `npm run test:journey` | 39-case end-to-end journey + security |
-| `npm run test:responsive` | 12 widths × 8 pages, fails on overflow |
+| `npm run test:responsive` | 12 widths × 8 pages, fails on overflow (needs Chrome, see below) |
+| `npm run check:images` | Fails if a product references artwork that does not exist |
+| `npm run fetch:images` | Download the reference artwork into `public/img/ref/` |
 | `npm run backup` | Database + archives with checksums |
 | `npm run restore` | Restore a backup directory |
+
+---
+
+## Product artwork
+
+Product covers are real photographs, not generated art — but the files are not
+committed. They live in `public/img/ref/`, which is gitignored, so a fresh clone
+has none of them and every cover falls back to a generated gradient. That
+fallback is deliberate: the storefront is never broken, just less pretty.
+
+To pull the real artwork in:
+
+```bash
+npm run fetch:images   # downloads all 51 into public/img/ref/
+npm run check:images   # confirms everything referenced is present
+```
+
+No reseed is needed — the database already stores the cover paths, so an image
+appears as soon as its file exists.
+
+```bash
+node scripts/check-ref-images.mjs --strict   # also fails when files are missing
+```
+
+`npm run test:responsive` drives a real browser and `puppeteer-core` ships none,
+so it needs one. It checks `CHROME`, then a few common paths:
+
+```bash
+CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" npm run test:responsive
+```
 
 ---
 
