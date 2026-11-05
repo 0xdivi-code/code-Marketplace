@@ -28,7 +28,7 @@ export function CategoryTile({
       <Link
         to={`/category/${category.slug}`}
         className={cn(
-          "group relative block aspect-[3/4] overflow-hidden rounded-md bg-surface-2 text-white",
+          "group relative block aspect-[3/4] overflow-hidden rounded-xl bg-surface-sunken text-white",
           "lift",
           "focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:outline-none",
         )}
@@ -60,7 +60,7 @@ export function CategoryTile({
         </div>
         {category.src && <RefImage src={category.src} alt="" hover />}
 
-        <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+        <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
 
         <span className="absolute inset-x-3 bottom-3 block">
           <span className="line-clamp-2 block text-[0.8125rem] font-semibold leading-tight sm:text-[0.875rem]">
