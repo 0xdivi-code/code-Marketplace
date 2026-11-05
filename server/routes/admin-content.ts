@@ -400,6 +400,58 @@ adminApi.get("/orders", async (c) => {
   });
 });
 
+/**
+ * Every captured payment, newest first, with the daily totals the finance view
+ * needs. Payouts are not simulated — this is the gateway's ledger.
+ */
+adminApi.get("/payments", async (c) => {
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: t.payments.id,
+      orderId: t.payments.orderId,
+      provider: t.payments.provider,
+      mode: t.payments.mode,
+      status: t.payments.status,
+      amount: t.payments.amount,
+      fee: t.payments.fee,
+      reference: t.payments.reference,
+      createdAt: t.payments.createdAt,
+      number: t.orders.number,
+      email: t.orders.email,
+      name: t.orders.name,
+    })
+    .from(t.payments)
+    .innerJoin(t.orders, eq(t.orders.id, t.payments.orderId))
+    .orderBy(desc(t.payments.createdAt));
+
+  const captured = rows.filter((r) => r.status === "succeeded");
+  const daily = new Map<string, { gross: number; fees: number; count: number }>();
+  for (const row of captured) {
+    const day = row.createdAt.toISOString().slice(0, 10);
+    const entry = daily.get(day) ?? { gross: 0, fees: 0, count: 0 };
+    entry.gross += row.amount;
+    entry.fees += row.fee;
+    entry.count += 1;
+    daily.set(day, entry);
+  }
+
+  return c.json({
+    payments: rows,
+    totals: {
+      gross: captured.reduce((n, r) => n + r.amount, 0),
+      fees: captured.reduce((n, r) => n + r.fee, 0),
+      net: captured.reduce((n, r) => n + r.amount - r.fee, 0),
+      count: captured.length,
+      refunded: rows.filter((r) => r.status === "refunded").length,
+      avgOrder: captured.length ? Math.round(captured.reduce((n, r) => n + r.amount, 0) / captured.length) : 0,
+    },
+    daily: [...daily.entries()]
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .map(([day, v]) => ({ day, ...v })),
+  });
+});
+
 adminApi.get("/orders/:number", async (c) => {
   const db = getDb();
   const rows = await db.select().from(t.orders).where(eq(t.orders.number, c.req.param("number"))).limit(1);
