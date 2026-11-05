@@ -1,27 +1,69 @@
-import { Link, useLocation, useParams } from "react-router-dom";
+import * as React from "react";
+import { Link, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Check, Download, FileText, ArrowRight, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ProductArt } from "@/components/ui/product-art";
-import { productBySlug } from "@/data/catalog";
-import type { CartLine, License } from "@/data/types";
 import { money } from "@/lib/utils";
+import { api, ApiError } from "@/lib/api";
 
-type PlacedOrder = { lines: CartLine[]; total: number };
+/** The shape `/api/account/orders/:number` returns for a completed purchase. */
+interface OrderResponse {
+  order: {
+    number: string;
+    status: string;
+    email: string;
+    subtotal: number;
+    discount: number;
+    total: number;
+    currency: string;
+    createdAt: string;
+    items: {
+      productSlug: string;
+      productName: string;
+      license: "personal" | "commercial" | "extended";
+      unitPrice: number;
+    }[];
+  };
+}
 
 export default function OrderConfirmationPage() {
-  const { id = "KL-10482" } = useParams();
-  const location = useLocation();
-  // checkout hands us the real lines + total; a direct visit falls back to the demo order
-  const placed = (location.state as PlacedOrder | null) ?? null;
-  const demo = { lines: [{ productSlug: "forge-saas-starter", license: "personal" as License }], total: 14900 };
-  const order = placed ?? demo;
-  const sample = order.lines
-    .map((l) => ({ line: l, product: productBySlug(l.productSlug) }))
-    .filter((x): x is { line: CartLine; product: NonNullable<ReturnType<typeof productBySlug>> } =>
-      Boolean(x.product),
+  const { id = "" } = useParams();
+  const [order, setOrder] = React.useState<OrderResponse["order"] | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  /**
+   * Read the order back from the API rather than trusting router state — that
+   * way a refresh, a shared link or a bookmark all still show the real receipt.
+   */
+  React.useEffect(() => {
+    let alive = true;
+    api
+      .get<OrderResponse>(`/account/orders/${encodeURIComponent(id)}`)
+      .then((res) => alive && setOrder(res.order))
+      .catch((err) => alive && setError(err instanceof ApiError ? err.message : "We could not load that order."));
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+
+  if (error) {
+    return (
+      <div className="container-x py-24 text-center">
+        <h1 className="text-[1.75rem]">Order not found</h1>
+        <p className="mt-2 text-sm text-ink-2">{error}</p>
+        <Button asChild className="mt-5">
+          <Link to="/account/orders">Go to your orders</Link>
+        </Button>
+      </div>
     );
+  }
+
+  if (!order) {
+    return <div className="container-x py-24 text-center text-sm text-ink-3">Loading your receipt…</div>;
+  }
+
 
   return (
     <div className="container-x py-14">
@@ -36,7 +78,7 @@ export default function OrderConfirmationPage() {
         </motion.div>
         <h1 className="mt-5 text-[2rem] leading-tight sm:text-[2.5rem]">You’re all set.</h1>
         <p className="mt-2 text-[0.9375rem] leading-relaxed text-ink-2">
-          Order <span className="font-mono text-ink">{id}</span> is paid. Download links are live in
+          Order <span className="font-mono text-ink">{order.number}</span> is paid. Download links are live in
           your library, and a receipt is on its way to your inbox.
         </p>
 
@@ -61,24 +103,34 @@ export default function OrderConfirmationPage() {
             </Badge>
           </div>
           <ul className="divide-y divide-line">
-            {sample.map(({ line, product }) => (
-              <li key={product.slug} className="flex items-center gap-3 px-5 py-3.5">
-                <ProductArt {...product.art} kind={product.art.kind} className="size-12 shrink-0 rounded-sm" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[0.8125rem] font-medium">{product.name}</p>
-                  <p className="text-[0.6875rem] capitalize text-ink-3">
-                    {line.license} license · v{product.version}
-                  </p>
+            {order.items.map((line) => (
+              <li key={line.productSlug} className="flex items-center gap-3 px-5 py-3.5">
+                <div className="grid size-12 shrink-0 place-items-center rounded-sm bg-surface-3 font-display text-lg text-ink-2">
+                  {line.productName.charAt(0)}
                 </div>
-                <Button size="sm" variant="soft">
-                  <Download className="size-3.5" /> .zip
-                </Button>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[0.8125rem] font-medium">{line.productName}</p>
+                  <p className="text-[0.6875rem] capitalize text-ink-3">{line.license} license</p>
+                </div>
+                <span className="font-mono text-[0.75rem] text-ink-2">{money(line.unitPrice)}</span>
               </li>
             ))}
           </ul>
-          <div className="flex items-center justify-between border-t border-line bg-surface-2/50 px-5 py-3">
-            <span className="text-[0.8125rem] text-ink-2">Total paid</span>
-            <span className="font-mono text-[0.9375rem] font-medium">{money(order.total)}</span>
+          <div className="space-y-1 border-t border-line bg-surface-2/50 px-5 py-3 text-[0.8125rem]">
+            <div className="flex items-center justify-between text-ink-2">
+              <span>Subtotal</span>
+              <span className="font-mono">{money(order.subtotal)}</span>
+            </div>
+            {order.discount > 0 && (
+              <div className="flex items-center justify-between text-ink-2">
+                <span>Discount</span>
+                <span className="font-mono">−{money(order.discount)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between pt-1">
+              <span className="font-medium">Total paid</span>
+              <span className="font-mono text-[0.9375rem] font-medium">{money(order.total)}</span>
+            </div>
           </div>
         </div>
 
