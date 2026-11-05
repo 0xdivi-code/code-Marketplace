@@ -18,8 +18,10 @@ import { Badge } from "@/components/ui/badge";
 import { SectionHeading } from "@/components/ui/card";
 import { ProductCard } from "@/components/site/product-card";
 import { CategoryTile } from "@/components/site/category-tile";
+import { ProductShowcase } from "@/components/site/product-showcase";
+import { FeaturedCollection } from "@/components/site/featured-collection";
+import { SellerPanel } from "@/components/site/seller-panel";
 import { ProductArt } from "@/components/ui/product-art";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/disclosure";
 import {
   categories,
   collections,
@@ -97,20 +99,6 @@ export default function HomePage() {
     const found = ordered.find((s) => s.key === key);
     return found ? found.enabled : true;
   };
-  const [tab, setTab] = React.useState("newest");
-  const discover = React.useMemo(() => {
-    if (tab === "rating") return [...products].sort((a, b) => b.rating - a.rating).slice(0, 4);
-    if (tab === "bestselling") return [...products].sort((a, b) => b.sales - a.sales).slice(0, 4);
-    return [...products].sort((a, b) => +new Date(b.released) - +new Date(a.released)).slice(0, 4);
-  }, [tab]);
-
-  // bundle pricing is derived from the same catalogue the collection page uses
-  const bundleProducts = (collections[0]?.products ?? [])
-    .map((slug) => productBySlug(slug))
-    .filter(Boolean) as { price: number }[];
-  const bundleList = bundleProducts.reduce((n, p) => n + p.price, 0);
-  const bundlePrice = Math.round(bundleList * 0.8);
-
 return (
     <div>
       <Hero onSearch={() => setSearch(true)} />
@@ -192,136 +180,22 @@ return (
         </section>
       )}
 
-      {/* ---------------------------------------------------- promo pair */}
-      {sectionOn("promo") && (
-  <section className="container-x mt-20">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Promo
-              href="/browse?sort=newest"
-              from="#17392b"
-              to="#3f7458"
-              eyebrow="Fresh drops"
-              title="New code every other Tuesday"
-              body="Starters, dashboards and tools, versioned and documented from the first commit."
-              cta="See new releases"
-              art="window"
-            />
-            <Promo
-              href="/free"
-              from="#c0592b"
-              to="#e39a6f"
-              eyebrow="Free collection"
-              title="Six items, zero dollars"
-              body="Production-grade empty states, hooks and recipes — MIT licensed, no email wall."
-              cta="Browse free code"
-              art="grid"
-            />
-          </div>
-        </section>
-      )}
+      {/* ------------------------------------------------ explore the marketplace */}
+      {sectionOn("discover") && <ProductShowcase products={products} limit={8} />}
 
-      {/* ---------------------------------------------------- discover tabs */}
-      <section className="container-x pt-20">
-        <SectionHeading
-          eyebrow="Discover"
-          title="Explore the catalogue"
-          action={
-            <Button asChild variant="outline" size="sm">
-              <Link to="/browse">
-                Browse everything <ArrowRight className="size-3.5" />
-              </Link>
-            </Button>
-          }
-        />
-        <Tabs value={tab} onValueChange={setTab} className="mt-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <TabsList className="w-fit">
-              <TabsTrigger value="newest">New releases</TabsTrigger>
-              <TabsTrigger value="bestselling">Best sellers</TabsTrigger>
-              <TabsTrigger value="rating">Top rated</TabsTrigger>
-            </TabsList>
-            <p className="hidden text-[0.6875rem] text-ink-3 sm:block">
-              {discover.length} items · updated weekly
-            </p>
-          </div>
-          {["newest", "bestselling", "rating"].map((key) => (
-            <TabsContent key={key} value={key} className="mt-8">
-              {tab === key && (
-                <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5">
-                  {discover.map((p, i) => (
-                    <ProductCard key={p.slug} product={p} index={i} />
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-          ))}
-        </Tabs>
-      </section>
+      {/* ------------------------------------------------ seller panel */}
+      {sectionOn("sell") && <SellerPanel items={featuredProducts.slice(0, 3)} />}
 
-      {/* ---------------------------------------------------- collection editorial */}
+      {/* ---------------------------------------------------- featured collection */}
       {sectionOn("collection") && (
-  <section className="mt-24 overflow-hidden border-y border-line bg-surface-2/60">
-          <div className="container-x py-16">
-            <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-              <div>
-                <div className="label-mono mb-3 flex items-center gap-2 text-accent-ink dark:text-accent">
-                  <span className="inline-block h-px w-6 bg-current" />
-                  Featured collection
-                </div>
-                <h2 className="text-[2rem] leading-[1.05] sm:text-[2.6rem]">The Launch Stack</h2>
-                <p className="mt-4 max-w-md text-[0.9375rem] leading-relaxed text-ink-2">
-                  Five items that take a SaaS from empty repository to first invoice: the starter, the
-                  auth layer, the billing engine, the API and the UI kit they all share.
-                </p>
-                <div className="mt-6 flex flex-wrap items-baseline gap-3">
-                  <span className="font-display text-2xl">{money(bundlePrice)}</span>
-                  <span className="font-mono text-sm text-ink-3 line-through">{money(bundleList)}</span>
-                  <Badge variant="accent" size="md">
-                    Save 20%
-                  </Badge>
-                </div>
-                <div className="mt-6 flex flex-wrap gap-2.5">
-                  <Button asChild size="lg">
-                    <Link to="/collection/the-launch-stack">
-                      View the collection <ArrowRight className="size-4" />
-                    </Link>
-                  </Button>
-                  <Button asChild variant="outline" size="lg">
-                    <Link to="/collection/operations-toolkit">Operations toolkit</Link>
-                  </Button>
-                </div>
-              </div>
-              <div className="grid grid-cols-5 gap-2.5 sm:gap-3">
-                {(collections[0]?.products ?? []).map((slug, i) => {
-                  const p = productBySlug(slug)!;
-                  return (
-                    <motion.div
-                      key={slug}
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.5, delay: i * 0.07, ease }}
-                      className={i === 0 ? "col-span-3 row-span-2 h-full" : "col-span-2"}
-                    >
-                      <Link
-                        to={`/item/${slug}`}
-                        className="group block h-full overflow-hidden rounded-md"
-                      >
-                        <ProductArt
-                          {...p.art}
-                          kind={p.art.kind}
-                          className={`h-full w-full transition-transform duration-700 group-hover:scale-[1.03] ${
-                            i === 0 ? "aspect-[4/5]" : "aspect-[16/10]"
-                          }`}
-                        />
-                      </Link>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </section>
+        <FeaturedCollection
+          items={(collections[0]?.products ?? []).map((slug) => productBySlug(slug)!).filter(Boolean)}
+          title="The creator's"
+          accent="toolkit"
+          body="A curated set of templates, graphics and photos we keep coming back to — priced as a bundle, licensed separately."
+          href="/collections"
+          quote="Great tools make great work easier."
+        />
       )}
 
       {/* ---------------------------------------------------- free */}
@@ -831,48 +705,5 @@ function Hero({ onSearch }: { onSearch: () => void }) {
         </div>
       </div>
     </section>
-  );
-}
-
-function Promo({
-  href,
-  from,
-  to,
-  eyebrow,
-  title,
-  body,
-  cta,
-  art,
-}: {
-  href: string;
-  from: string;
-  to: string;
-  eyebrow: string;
-  title: string;
-  body: string;
-  cta: string;
-  art: "window" | "grid";
-}) {
-  return (
-    <Link
-      to={href}
-      className="group relative overflow-hidden rounded-lg border border-line"
-      style={{ background: `linear-gradient(115deg, ${from} 0%, ${to} 100%)` }}
-    >
-      <div className="relative z-10 flex min-h-[13rem] flex-col justify-between p-6 text-white sm:min-h-[14rem] sm:p-8">
-        <div>
-          <p className="label-mono text-[0.5rem] text-white/60">{eyebrow}</p>
-          <h3 className="mt-2 max-w-xs font-display text-[1.4rem] leading-tight">{title}</h3>
-          <p className="mt-2 max-w-xs text-[0.8125rem] leading-relaxed text-white/70">{body}</p>
-        </div>
-        <span className="mt-5 inline-flex items-center gap-1.5 text-[0.8125rem] font-medium">
-          {cta}
-          <ArrowRight className="size-3.5 transition-transform duration-300 group-hover:translate-x-1" />
-        </span>
-      </div>
-      <div className="absolute -right-6 -top-2 h-[110%] w-1/2 opacity-60 transition-transform duration-700 group-hover:scale-105">
-        <ProductArt from={from} to={to} ink="#ffffff" kind={art} className="size-full" />
-      </div>
-    </Link>
   );
 }
