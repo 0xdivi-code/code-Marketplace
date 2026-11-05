@@ -7,12 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { useSession, useTheme } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { api, ApiError, authApi, refreshAuth } from "@/lib/api";
 
-const sessions = [
-  { device: "MacBook Pro · Lisbon", meta: "Chrome 142 · current session", current: true, at: "Active now" },
-  { device: "iPhone 15 · Lisbon", meta: "Safari · Kiln iOS not installed", current: false, at: "2 days ago" },
-  { device: "Windows 11 · Berlin", meta: "Firefox 133", current: false, at: "3 weeks ago" },
-];
+const COUNTRIES = ["Nigeria", "Portugal", "United Kingdom", "Germany", "United States"];
 
 export default function SettingsPage() {
   const { user } = useSession();
@@ -25,7 +22,42 @@ export default function SettingsPage() {
     commentReplies: true,
   });
   const [name, setName] = React.useState(user?.name ?? "");
-  const [email, setEmail] = React.useState(user?.email ?? "");
+  const [country, setCountry] = React.useState("Nigeria");
+  const [company, setCompany] = React.useState("");
+  const [vat, setVat] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+
+  // The session resolves after first paint; fill the form once it does.
+  React.useEffect(() => {
+    if (!user) return;
+    setName((n) => n || user.name);
+    setCountry((c) => user.country || c);
+  }, [user?.name, user?.country]);
+
+  async function saveProfile() {
+    if (name.trim().length < 2) return toast.error("Your name needs at least two characters.");
+    setSaving(true);
+    try {
+      await api.patch("/account/me", { name: name.trim(), country });
+      await refreshAuth(true);
+      toast.success("Profile saved", { description: "Shown on invoices and receipts." });
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not save your profile.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /** Password changes go through the same reset mail the login page uses. */
+  async function changePassword() {
+    if (!user?.email) return;
+    try {
+      await authApi.forgot(user.email);
+      toast.success("Reset link sent", { description: `Check ${user.email} — the link expires in an hour.` });
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not send the reset link.");
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -56,22 +88,37 @@ export default function SettingsPage() {
               <Field label="Full name" htmlFor="n">
                 <Input id="n" value={name} onChange={(e) => setName(e.target.value)} />
               </Field>
-              <Field label="Email" htmlFor="e">
-                <Input id="e" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Field label="Email" htmlFor="e" hint="Contact support to change your sign-in address">
+                <Input id="e" type="email" value={user?.email ?? ""} readOnly className="opacity-70" />
               </Field>
               <Field label="Company" htmlFor="c" optional>
-                <Input id="c" defaultValue="Okafor Design Studio" />
+                <Input
+                  id="c"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  placeholder="Studio name"
+                />
               </Field>
-              <Field label="Country" htmlFor="co">
-                <NativeSelect id="co" className="h-11 text-sm" defaultValue="Nigeria">
-                  {["Nigeria", "Portugal", "United Kingdom", "Germany", "United States"].map((c) => (
+              <Field label="Country" htmlFor="co" hint="Used on invoices">
+                <NativeSelect
+                  id="co"
+                  className="h-11 text-sm"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                >
+                  {[...new Set([country, ...COUNTRIES])].filter(Boolean).map((c) => (
                     <option key={c}>{c}</option>
                   ))}
                 </NativeSelect>
               </Field>
             </div>
-            <Field label="VAT number" htmlFor="vat" optional hint="Used on invoices for EU purchases">
-              <Input id="vat" placeholder="PT123456789" />
+            <Field label="VAT number" htmlFor="vat" optional hint="Entered at checkout on EU purchases">
+              <Input
+                id="vat"
+                value={vat}
+                onChange={(e) => setVat(e.target.value)}
+                placeholder="PT123456789"
+              />
             </Field>
             <div className="mt-5 flex items-center justify-between border-t border-line pt-4">
               <div>
@@ -98,11 +145,8 @@ export default function SettingsPage() {
               </div>
             </div>
             <div className="mt-4 flex justify-end">
-              <Button
-                size="sm"
-                onClick={() => toast.success("Profile saved", { description: "Changes applied immediately." })}
-              >
-                Save changes
+              <Button size="sm" disabled={saving} onClick={() => void saveProfile()}>
+                {saving ? "Saving…" : "Save changes"}
               </Button>
             </div>
           </div>
@@ -113,9 +157,11 @@ export default function SettingsPage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h3 className="text-[0.9375rem] font-medium">Password</h3>
-                <p className="mt-0.5 text-[0.75rem] text-ink-2">Last changed 4 months ago</p>
+                <p className="mt-0.5 text-[0.75rem] text-ink-2">
+                  We email a one-hour reset link to {user?.email ?? "your address"}.
+                </p>
               </div>
-              <Button size="sm" variant="outline" onClick={() => toast.success("Reset link sent")}>
+              <Button size="sm" variant="outline" onClick={() => void changePassword()}>
                 Change password
               </Button>
             </div>
@@ -144,26 +190,26 @@ export default function SettingsPage() {
               <p className="text-[0.6875rem] text-ink-3">Sign out devices you don’t recognise</p>
             </div>
             <ul className="divide-y divide-line">
-              {sessions.map((s) => (
-                <li key={s.device} className="flex items-center gap-3 px-5 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[0.8125rem] font-medium">{s.device}</p>
-                    <p className="text-[0.625rem] text-ink-3">
-                      {s.meta} · {s.at}
-                    </p>
-                  </div>
-                  {s.current ? (
-                    <Badge variant="success" size="sm">
-                      <Check className="size-2.5" /> This device
-                    </Badge>
-                  ) : (
-                    <Button variant="ghost" size="sm">
-                      Revoke
-                    </Button>
-                  )}
-                </li>
-              ))}
+              <li className="flex items-center gap-3 px-5 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[0.8125rem] font-medium">This browser</p>
+                  <p className="text-[0.625rem] text-ink-3">
+                    {typeof navigator !== "undefined" ? navigator.userAgent.split(") ")[0].split(" (").pop() : "Unknown"} ·
+                    signed in {user?.createdAt ? new Date(user.createdAt).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    }) : "recently"}
+                  </p>
+                </div>
+                <Badge variant="success" size="sm">
+                  <Check className="size-2.5" /> This device
+                </Badge>
+              </li>
             </ul>
+            <p className="border-t border-line px-5 py-2.5 text-[0.625rem] text-ink-3">
+              Sessions last 30 days. Suspending an account or changing a password signs every device out.
+            </p>
           </div>
         </TabsContent>
 

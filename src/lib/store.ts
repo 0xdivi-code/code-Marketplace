@@ -176,6 +176,9 @@ const shapeUser = (u: SessionUser | null) =>
           .slice(0, 2)
           .toUpperCase(),
         role: u.role === "admin" || u.role === "owner" ? "admin" : "customer",
+        country: u.country ?? null,
+        createdAt: u.createdAt,
+        emailVerified: u.emailVerified,
       }
     : null;
 

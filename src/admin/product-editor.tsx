@@ -541,7 +541,12 @@ export default function AdminProductEditor() {
                 variant="danger"
                 size="xs"
                 className="mt-2.5 h-7"
-                onClick={() => toast.success("Product archived")}
+                disabled={busy}
+                onClick={() => {
+                  if (!window.confirm("Archive this product? It leaves the storefront; existing licences stay valid."))
+                    return;
+                  void save("archived");
+                }}
               >
                 Archive product
               </Button>
