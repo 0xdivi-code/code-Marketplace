@@ -19,6 +19,7 @@ import { api } from "./routes/storefront";
 import { account } from "./routes/account";
 import { markServing, webhooks } from "./routes/webhooks";
 import { free } from "./routes/free";
+import { seo } from "./routes/seo";
 import { adminPayments } from "./routes/admin-payments";
 import { adminApi } from "./routes/admin";
 import { adminContentApi } from "./routes/admin-content";
@@ -55,10 +56,40 @@ app.use(
  * server. Credentials are required for the session cookies, so the origin is
  * echoed rather than wildcarded (a wildcard is illegal with credentials).
  */
+/**
+ * Allowed browser origins.
+ *
+ * Echoing back whatever `Origin` arrives would let any website read
+ * authenticated admin responses using a logged-in owner's cookies. In
+ * production only an explicit allow-list is honoured; in development the Vite
+ * dev server and the preview proxy are added.
+ */
+const allowedOrigins = (() => {
+  const list = new Set<string>();
+  for (const raw of (process.env.APP_ORIGINS ?? "").split(",")) {
+    const v = raw.trim().replace(/\/$/, "");
+    if (v) list.add(v);
+  }
+  if (process.env.PUBLIC_BASE_URL) list.add(process.env.PUBLIC_BASE_URL.trim().replace(/\/$/, ""));
+  if (!isProd) {
+    for (const port of [5173, 5174, 5175, 4173]) list.add(`http://localhost:${port}`);
+  }
+  return list;
+})();
+
+/** same-origin requests send no Origin; the preview proxy sends a *.e2b.app one. */
+function originAllowed(origin: string | undefined): boolean {
+  if (!origin) return true;
+  if (allowedOrigins.has(origin)) return true;
+  // Local preview hosts are only trusted outside production.
+  if (!isProd && /^https:\/\/[a-z0-9-]+\.e2b\.app$/i.test(origin)) return true;
+  return false;
+}
+
 app.use(
   "/api/*",
   cors({
-    origin: (origin) => origin ?? "",
+    origin: (origin) => (originAllowed(origin) ? (origin ?? "") : ""),
     credentials: true,
     allowMethods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "X-Filename", "X-Requested-With"],
@@ -101,6 +132,8 @@ app.route("/api/admin", adminApi);
 app.route("/api/admin", adminContentApi);
 app.route("/api/admin", adminPayments);
 app.route("/api/webhooks", webhooks);
+// Search-engine files are served from the API and rewritten at the edge.
+app.route("/api", seo);
 app.route("/api", free);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));
@@ -133,8 +166,11 @@ async function main() {
 /**
  * Tests import this module for `app` and drive their own database, so they opt
  * out with NODE_ENV=test or API_AUTOSTART=false.
+ *
+ * Production must start: the previous condition required `!isProd`, so a
+ * `NODE_ENV=production` boot exited silently with no server and no error.
  */
-const autostart = !isProd && process.env.API_AUTOSTART !== "false" && process.env.NODE_ENV !== "test";
+const autostart = process.env.API_AUTOSTART !== "false" && process.env.NODE_ENV !== "test";
 if (autostart) {
   main().catch((err) => {
     console.error("Failed to start API", err);

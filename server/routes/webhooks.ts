@@ -197,7 +197,22 @@ async function handle(providerKey: "nowpayments" | "sandbox", c: any) {
 }
 
 webhooks.post("/nowpayments", (c) => handle("nowpayments", c));
-webhooks.post("/sandbox", (c) => handle("sandbox", c));
+
+/**
+ * The sandbox gateway is a development stand-in: it can be told to mark an
+ * order paid without any money moving. In production it is not merely
+ * discouraged, it is unreachable — otherwise one POST would mint paid orders.
+ *
+ * `ALLOW_SANDBOX_IN_PRODUCTION=true` exists only for a sealed staging
+ * environment and logs a warning on every use.
+ */
+const SANDBOX_ALLOWED =
+  process.env.NODE_ENV !== "production" || process.env.ALLOW_SANDBOX_IN_PRODUCTION === "true";
+
+webhooks.post("/sandbox", (c) => {
+  if (!SANDBOX_ALLOWED) return c.json({ error: "Not found" }, 404);
+  return handle("sandbox", c);
+});
 
 /**
  * Local sandbox invoice page.
@@ -208,6 +223,7 @@ webhooks.post("/sandbox", (c) => handle("sandbox", c));
  * the same verification path a real gateway would.
  */
 webhooks.get("/sandbox/:ref", async (c) => {
+  if (!SANDBOX_ALLOWED) return c.json({ error: "Not found" }, 404);
   const ref = c.req.param("ref");
   const db = getDb();
   const [session] = await db

@@ -35,6 +35,7 @@ import { compact, money } from "@/lib/utils";
 import { RefImage } from "@/components/ui/ref-image";
 import { useUi } from "@/lib/store";
 import { useCatalog } from "@/lib/catalog-store";
+import { useSeo } from "@/lib/seo";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -64,6 +65,23 @@ const promises = [
 const words = ["SaaS", "dashboards", "APIs", "auth", "billing", "UI kits"];
 
 export default function HomePage() {
+  useSeo({
+    title: "Kiln — production-ready source code",
+    description:
+      "Hand-built starters, dashboards and integrations with full source, lifetime updates and a 14-day refund window. Pay in USDT, USDC or BTC.",
+    path: "/",
+    jsonLd: {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: "Kiln",
+      url: window.location.origin,
+      potentialAction: {
+        "@type": "SearchAction",
+        target: `${window.location.origin}/browse?q={search_term_string}`,
+        "query-input": "required name=search_term_string",
+      },
+    },
+  });
   const { setSearch } = useUi();
   const catalog = useCatalog();
 

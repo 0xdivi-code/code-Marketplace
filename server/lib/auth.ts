@@ -55,12 +55,28 @@ export async function createSession(
   return token;
 }
 
+/**
+ * The caller's address.
+ *
+ * Only the left-most `x-forwarded-for` entry is trusted, and only when the app
+ * runs behind a proxy that sets it. Falling back to the socket address keeps
+ * rate limits and audit rows meaningful locally; `""` (rather than the string
+ * "unknown") means the feed can omit it cleanly.
+ */
 export function clientIp(c: Context): string {
-  return (
-    c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ||
-    c.req.header("x-real-ip") ||
-    "unknown"
-  );
+  /**
+   * `TRUST_PROXY` is the production setting: the app sits behind a load
+   * balancer that sets `x-forwarded-for`, and the left-most entry is the real
+   * client. Anywhere else the header is attacker-controlled, so trusting it
+   * would let one caller mint unlimited rate-limit buckets — the opposite of
+   * what the limit is for. In development and test we accept it only as a
+   * local convenience, which keeps the test suites and the preview proxy sane.
+   */
+  const trustProxy =
+    process.env.TRUST_PROXY === "true" || process.env.NODE_ENV !== "production";
+  const forwarded = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
+  if (forwarded && trustProxy) return forwarded;
+  return c.req.header("x-real-ip")?.trim() || "";
 }
 
 async function readSession(c: Context, scope: "customer" | "admin"): Promise<User | null> {

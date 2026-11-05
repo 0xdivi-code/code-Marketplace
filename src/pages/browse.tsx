@@ -18,10 +18,17 @@ import { products, categories } from "@/data/catalog";
 import { cn } from "@/lib/utils";
 import { Pagination } from "@/components/ui/disclosure";
 import { useCatalogVersion } from "@/lib/catalog-store";
+import { useSeo } from "@/lib/seo";
 
 const PER_PAGE = 9;
 
 export default function BrowsePage() {
+  useSeo({
+    title: "Browse the catalogue — starters, dashboards and tooling",
+    description:
+      "Every Kiln product in one place: SaaS starters, admin dashboards, UI kits and integrations, each with full source and lifetime updates.",
+    path: "/browse",
+  });
   const [params, setParams] = useSearchParams();
   const [filters, setFilters] = React.useState<Filters>(initialFilters);
   const [sort, setSort] = React.useState(params.get("sort") ?? "popular");

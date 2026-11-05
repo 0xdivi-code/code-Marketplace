@@ -14,7 +14,28 @@ import { mkdir, writeFile, readFile, rm, stat } from "node:fs/promises";
 import { dirname, join, resolve, extname } from "node:path";
 
 const ROOT = resolve(process.env.STORAGE_DIR ?? join(process.cwd(), ".data/storage"));
-const SECRET = process.env.STORAGE_SECRET ?? "dev-only-insecure-storage-secret-change-me";
+const FALLBACK_SECRET = "dev-only-insecure-storage-secret-change-me";
+
+/**
+ * The signing key.
+ *
+ * Falling back to a published constant in production would let anyone mint a
+ * download URL for any stored archive, so a missing key is a hard failure
+ * rather than a quietly insecure default. Development keeps the constant so a
+ * fresh clone runs without configuration.
+ */
+function resolveSecret(): string {
+  const configured = process.env.STORAGE_SECRET?.trim();
+  if (configured && configured !== FALLBACK_SECRET) return configured;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "STORAGE_SECRET must be set to a private value in production (openssl rand -hex 32).",
+    );
+  }
+  return FALLBACK_SECRET;
+}
+
+const SECRET = resolveSecret();
 
 export const UPLOAD_LIMITS = {
   /** max size for a source-code ZIP */

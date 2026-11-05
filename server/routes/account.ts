@@ -9,6 +9,7 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "../db/client";
+import { downloadReady } from "../lib/notify";
 import * as t from "../db/schema";
 import { currentUser, publicUser, clientIp } from "../lib/auth";
 import { rateLimit } from "../lib/rate-limit";
@@ -30,6 +31,7 @@ import {
   getProvider,
   invoiceUrlFor,
   payOption,
+  paymentsConfigured,
   providerConfig,
   tickerFor,
 } from "../lib/payments";
@@ -366,6 +368,20 @@ account.post(
 
     // A fully discounted (or free) cart needs no invoice at all.
     const freeOrder = q.total === 0;
+
+    // A paid cart in production with no gateway key would mint an invoice that
+    // can never be paid. Refuse it and say why, rather than trapping the buyer
+    // on a dead payment page.
+    if (!freeOrder && !(await paymentsConfigured())) {
+      return c.json(
+        {
+          error:
+            "Card and crypto payments are not available right now. Please try again shortly or contact us.",
+          code: "payments_unconfigured",
+        },
+        503,
+      );
+    }
 
     const [order] = await db
       .insert(t.orders)
@@ -786,6 +802,21 @@ account.post(
       version: product.version,
       ip: clientIp(c),
     });
+
+    /**
+     * Email the link as a convenience so a customer can start a download on a
+     * different device. Rate-limited by the same counter above, and the token
+     * is the same one returned to the browser.
+     */
+    if (c.req.query("email") === "1") {
+      void downloadReady({
+        to: user.email,
+        userId: user.id,
+        productName: product.name,
+        version: product.version,
+        url: `/api/account/downloads/${token}`,
+      });
+    }
 
     return c.json({
       ok: true,

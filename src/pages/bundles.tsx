@@ -9,6 +9,7 @@ import { money } from "@/lib/utils";
 import { rememberBundle, useCart, useUi } from "@/lib/store";
 import { toast } from "sonner";
 import type { License } from "@/data/types";
+import { useSeo } from "@/lib/seo";
 
 interface Bundle {
   slug: string;
@@ -29,6 +30,12 @@ interface Bundle {
  * pricing live server-side, so the storefront cannot disagree with checkout.
  */
 export default function BundlesPage() {
+  useSeo({
+    title: "Bundles — products that are better together",
+    description:
+      "Buy a Kiln stack for less than the sum of its parts. Every product in the bundle comes with a full licence and lifetime updates.",
+    path: "/bundles",
+  });
   const [bundles, setBundles] = React.useState<Bundle[]>([]);
   const [loading, setLoading] = React.useState(true);
   const add = useCart((s) => s.add);

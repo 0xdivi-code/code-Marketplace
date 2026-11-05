@@ -24,7 +24,7 @@ import {
   destroyAllSessions,
 } from "../lib/auth";
 import { logActivity } from "../lib/activity";
-import { sendDevEmail } from "../lib/mailer";
+import { verifyEmail, resetPassword } from "../lib/notify";
 
 const auth = new Hono();
 
@@ -99,11 +99,7 @@ auth.post(
       tokenHash: sha256(token),
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     });
-    await sendDevEmail({
-      to: email,
-      subject: "Verify your Kiln account",
-      text: `Confirm your email: /verify-email?token=${token}`,
-    });
+    await verifyEmail({ to: email, token, userId: user.id });
 
     await createSession(c, user, "customer");
     await logActivity({ actor: user.email, action: "created an account", target: user.email, kind: "auth", ip });
@@ -151,7 +147,7 @@ auth.post(
       // Recovery codes are single use: a match is consumed immediately.
       const asRecovery = !asTotp && (user.recoveryCodes ?? []).includes(hashCode(totp));
       if (!asTotp && !asRecovery) {
-        await logActivity({ actor: email, action: "failed a two-factor challenge", target: ip, kind: "auth", ip });
+        await logActivity({ actor: email, action: "failed a two-factor challenge", target: "", kind: "auth", ip });
         return c.json({ error: "That code is not valid.", needTotp: true }, 401);
       }
       if (asRecovery) {
@@ -305,11 +301,7 @@ auth.post(
         tokenHash: sha256(token),
         expiresAt: new Date(Date.now() + 60 * 60 * 1000),
       });
-      await sendDevEmail({
-        to: email,
-        subject: "Reset your Kiln password",
-        text: `Reset link (valid 1 hour): /reset-password?token=${token}`,
-      });
+      await resetPassword({ to: email, token, userId: user.id });
     }
     return c.json({ ok: true, message: "If that address has an account, a reset link is on its way." });
   },
@@ -451,7 +443,7 @@ admin.post(
 
     const user = await findByEmail(email);
     if (!user || !(await verifyPassword(password, user.passwordHash))) {
-      await logActivity({ actor: email, action: "failed an admin sign-in", target: ip, kind: "auth", ip });
+      await logActivity({ actor: email, action: "failed an admin sign-in", target: "", kind: "auth", ip });
       return c.json({ error: "Email or password is incorrect." }, 401);
     }
     if (user.role === "customer") {
@@ -471,7 +463,7 @@ admin.post(
       // Recovery codes are single use: a match is consumed immediately.
       const asRecovery = !asTotp && (user.recoveryCodes ?? []).includes(hashCode(totp));
       if (!asTotp && !asRecovery) {
-        await logActivity({ actor: email, action: "failed a two-factor challenge", target: ip, kind: "auth", ip });
+        await logActivity({ actor: email, action: "failed a two-factor challenge", target: "", kind: "auth", ip });
         return c.json({ error: "That code is not valid.", needTotp: true }, 401);
       }
       if (asRecovery) {
@@ -488,7 +480,7 @@ admin.post(
     const db = getDb();
     await db.update(t.users).set({ lastLoginAt: new Date() }).where(eq(t.users.id, user.id));
     await createSession(c, user, "admin");
-    await logActivity({ actor: user.email, action: "signed in to the admin console", target: ip, kind: "auth", ip });
+    await logActivity({ actor: user.email, action: "signed in to the admin console", target: "", kind: "auth", ip });
 
     return c.json({ ok: true, user: publicUser(user) });
   },

@@ -14,7 +14,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "../db/client";
 import * as t from "../db/schema";
 import { logActivity } from "./activity";
-import { sendDevEmail } from "./mailer";
+import { paymentConfirmed } from "./notify";
 import { certificateNumber, certificateText, DEFAULT_TERMS, type LicenseTier } from "./licensing";
 import { providerConfig, type NormalizedStatus } from "./payments";
 
@@ -207,26 +207,22 @@ export async function settleOrder(input: {
     }
   }
 
-  // ---- receipt
-  const lines = items
-    .map((i) => `  ${i.quantity} x ${i.productName} (${i.license}) — $${(i.unitPrice / 100).toFixed(2)}`)
-    .join("\n");
-  const money = (c: number) => `$${(c / 100).toFixed(2)}`;
-  const { baseUrl } = await providerConfig();
-  await sendDevEmail({
-    to: order.email,
-    subject: `Payment received — ${order.number}`,
-    text:
-      `Hi ${order.name || "there"},\n\n` +
-      `We have confirmed your payment of ${money(order.total)}.\n\n` +
-      `${lines}\n\n` +
-      (order.discount ? `Discount ${order.couponCode ?? ""}: -${money(order.discount)}\n` : "") +
-      `Total ${money(order.total)}\n\n` +
-      `Paid with ${input.payCurrency?.toUpperCase() ?? "crypto"}` +
-      (input.payinHash ? ` (tx ${input.payinHash.slice(0, 16)}…)` : "") +
-      `.\n\n` +
-      `Your downloads are unlocked now:\n${baseUrl}/account/library\n\n` +
-      `Reference ${reference}\n\n— Kiln`,
+  // ---- receipt (recorded in `notifications` whether or not it sends)
+  await paymentConfirmed({
+    order: {
+      id: order.id,
+      number: order.number,
+      email: order.email,
+      name: order.name,
+      total: order.total,
+    },
+    lines: items.map((i) => ({
+      productName: i.productName,
+      license: i.license,
+      quantity: i.quantity,
+      unitPrice: i.unitPrice,
+    })),
+    payCurrency: input.payCurrency ?? null,
   });
 
   await logActivity({

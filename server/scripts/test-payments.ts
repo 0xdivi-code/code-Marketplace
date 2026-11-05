@@ -197,10 +197,11 @@ await test("a failed payment never settles", async () => {
     method: "POST",
     cookie: customer,
     body: JSON.stringify({
-      lines: [{ slug: "pocket-expo", license: "personal", quantity: 1 }],
+      lines: [{ slug: "beacon-analytics", license: "personal", quantity: 1 }],
       idempotencyKey: `fail-${Date.now()}`,
     }),
   });
+  assert.equal(co.status, 201, `checkout failed: ${JSON.stringify(co.body)}`);
   const ref = (co.body!.payment as { invoiceUrl: string }).invoiceUrl.split("/").pop()!;
   await json(`/api/webhooks/sandbox/${ref}/pay`, {
     method: "POST",

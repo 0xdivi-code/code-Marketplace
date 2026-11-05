@@ -47,6 +47,7 @@ import AdminContent from "@/admin/content";
 import AdminBanners from "@/admin/banners";
 import AdminPromotions from "@/admin/promotions";
 import AdminBundles from "@/admin/bundles";
+import AdminNotifications from "@/admin/notifications";
 import BundlesPage from "@/pages/bundles";
 import AdminSettings from "@/admin/settings";
 import AdminActivity from "@/admin/activity";
@@ -113,6 +114,7 @@ export default function App() {
         <Route path="banners" element={<AdminBanners />} />
         <Route path="promotions" element={<AdminPromotions />} />
         <Route path="bundles" element={<AdminBundles />} />
+        <Route path="notifications" element={<AdminNotifications />} />
         <Route path="content" element={<AdminContent />} />
         <Route path="settings" element={<AdminSettings />} />
         <Route path="activity" element={<AdminActivity />} />

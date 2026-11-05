@@ -40,6 +40,7 @@ import { cn, compact, money } from "@/lib/utils";
 import { saleRatio, useCart, useRecent, useUi, useWishlist } from "@/lib/store";
 import { api, ApiError } from "@/lib/api";
 import { toast } from "sonner";
+import { useSeo } from "@/lib/seo";
 import NotFoundPage from "./not-found";
 
 export default function ProductPage() {
@@ -54,6 +55,43 @@ export default function ProductPage() {
   // Declared above the "product is missing" early return: hooks must run in the
   // same order on every render, and the catalogue hydrates a frame later.
   const [grabbing, setGrabbing] = React.useState(false);
+
+  /**
+   * Product metadata for search and social. The JSON-LD block is what turns a
+   * listing into a rich result with price and availability, so it is built from
+   * the same live record the page renders.
+   */
+  useSeo({
+    title: product ? `${product.name} — ${product.tagline}` : "Product",
+    description: product?.tagline,
+    path: `/item/${slug}`,
+    type: "product",
+    jsonLd: product
+      ? {
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          name: product.name,
+          description: product.tagline,
+          applicationCategory: "DeveloperApplication",
+          operatingSystem: product.stack?.join(", ") || "Any",
+          offers: {
+            "@type": "Offer",
+            price: (product.tiers?.[0]?.price ?? product.price ?? 0) / 100,
+            priceCurrency: "USD",
+            availability: "https://schema.org/InStock",
+          },
+          ...(product.rating
+            ? {
+                aggregateRating: {
+                  "@type": "AggregateRating",
+                  ratingValue: product.rating,
+                  reviewCount: product.reviews ?? 1,
+                },
+              }
+            : {}),
+        }
+      : undefined,
+  });
 
   React.useEffect(() => {
     if (product) {

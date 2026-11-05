@@ -191,7 +191,10 @@ export async function ipnSecret(): Promise<string> {
   const { ipnSecret: secret } = await providerConfig();
   // A fixed dev fallback keeps local runs testable; in production an unset
   // secret must fail closed, which `verifyWebhook` enforces.
-  return secret || (process.env.NODE_ENV === "production" ? "" : "dev-ipn-secret-change-me");
+  if (secret) return secret;
+  // In production an unsigned IPN would let anyone mark an order paid.
+  if (process.env.NODE_ENV === "production") return "";
+  return "dev-ipn-secret-change-me";
 }
 
 export async function saveProviderConfig(patch: Partial<ProviderConfig>) {
@@ -203,6 +206,20 @@ export async function saveProviderConfig(patch: Partial<ProviderConfig>) {
 export async function activeProvider(): Promise<ProviderKey> {
   const { apiKey } = await providerConfig();
   return apiKey ? "nowpayments" : "sandbox";
+}
+
+/**
+ * True when checkout can actually take money.
+ *
+ * In production a missing gateway key must be a loud misconfiguration, not a
+ * quiet fall-through to the sandbox: the sandbox would happily accept orders
+ * and never collect a cent. Callers use this to refuse checkout with a clear
+ * message instead of creating an invoice nobody can pay.
+ */
+export async function paymentsConfigured(): Promise<boolean> {
+  if (process.env.NODE_ENV !== "production") return true;
+  const { apiKey, ipnSecret } = await providerConfig();
+  return Boolean(apiKey && ipnSecret);
 }
 
 export interface Provider {

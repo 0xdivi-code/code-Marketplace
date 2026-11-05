@@ -33,6 +33,17 @@ export default defineConfig({
         changeOrigin: false,
         ws: false,
       },
+      // Search-engine files must live at the domain root, not under /api.
+      "/robots.txt": {
+        target: process.env.API_ORIGIN ?? "http://127.0.0.1:8787",
+        rewrite: () => "/api/robots.txt",
+        changeOrigin: false,
+      },
+      "/sitemap.xml": {
+        target: process.env.API_ORIGIN ?? "http://127.0.0.1:8787",
+        rewrite: () => "/api/sitemap.xml",
+        changeOrigin: false,
+      },
     },
   },
 });

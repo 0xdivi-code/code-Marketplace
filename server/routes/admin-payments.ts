@@ -24,7 +24,7 @@ import {
   saveProviderConfig,
 } from "../lib/payments";
 import { licenseTerms, DEFAULT_TERMS, LICENSE_TIERS } from "../lib/licensing";
-import { sendDevEmail } from "../lib/mailer";
+import { refundProcessed } from "../lib/notify";
 
 export const adminPayments = new Hono();
 
@@ -285,17 +285,13 @@ adminPayments.post(
       .where(eq(t.payments.orderId, order.id));
 
     if (body.notify) {
-      await sendDevEmail({
+      await refundProcessed({
         to: order.email,
-        subject: `Refund issued — ${order.number}`,
-        text:
-          `Hi ${order.name || "there"},\n\n` +
-          `We have refunded ${order.number} in full ($${(order.total / 100).toFixed(2)}).\n` +
-          (body.reason ? `Reason: ${body.reason}\n` : "") +
-          (body.refundRef ? `Refund transaction: ${body.refundRef}\n` : "") +
-          `\nDownloads for this order are now closed and the licences are revoked.\n` +
-          `Crypto refunds settle to the sending wallet once the operator broadcasts; ` +
-          `reply here if you need the transaction id.\n\n— Kiln`,
+        userId: order.userId,
+        orderId: order.id,
+        orderNumber: order.number,
+        amount: order.total,
+        reason: body.reason ?? null,
       });
     }
 

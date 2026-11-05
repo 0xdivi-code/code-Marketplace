@@ -191,7 +191,9 @@ adminApi.get("/customers", async (c) => {
     select user_id, count(*)::int as orders, coalesce(sum(total), 0)::int as spent
     from orders where status = 'paid' and user_id is not null group by 1
   `);
-  const spendMap = new Map(spend.rows.map((r) => [r.user_id, r]));
+  const spendMap = new Map<string, { user_id: string; orders: number; spent: number }>(
+    spend.rows.map((r): [string, { user_id: string; orders: number; spent: number }] => [r.user_id, r]),
+  );
 
   return c.json({
     customers: rows.map((u) =>

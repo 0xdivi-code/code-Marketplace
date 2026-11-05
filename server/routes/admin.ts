@@ -12,6 +12,8 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { getDb } from "../db/client";
+import { productUpdate } from "../lib/notify";
+import { activeTransport } from "../lib/mailer";
 import * as t from "../db/schema";
 import { currentAdmin, isAdmin } from "../lib/auth";
 import { audit, logActivity } from "../lib/activity";
@@ -57,8 +59,32 @@ adminApi.get("/overview", async (c) => {
       db.select({ n: sql<number>`count(*)::int` }).from(t.products),
       db.select({ n: sql<number>`count(*)::int` }).from(t.downloads),
       db.select({ n: sql<number>`count(*)::int` }).from(t.reviews).where(eq(t.reviews.status, "pending")),
-      db.select().from(t.orders).orderBy(desc(t.orders.createdAt)).limit(6),
-      db.select().from(t.activityLog).orderBy(desc(t.activityLog.createdAt)).limit(8),
+      db
+        .select({
+          id: t.orders.id,
+          number: t.orders.number,
+          status: t.orders.status,
+          total: t.orders.total,
+          createdAt: t.orders.createdAt,
+          email: t.users.email,
+          name: t.users.name,
+        })
+        .from(t.orders)
+        .leftJoin(t.users, eq(t.users.id, t.orders.userId))
+        .orderBy(desc(t.orders.createdAt))
+        .limit(6),
+      db
+        .select({
+          id: t.activityLog.id,
+          kind: t.activityLog.kind,
+          actor: t.activityLog.actor,
+          action: t.activityLog.action,
+          target: t.activityLog.target,
+          createdAt: t.activityLog.createdAt,
+        })
+        .from(t.activityLog)
+        .orderBy(desc(t.activityLog.createdAt))
+        .limit(8),
       db
         .select({ name: t.products.name, slug: t.products.slug, sales: t.products.sales, price: t.products.price, rating: t.products.rating })
         .from(t.products)
@@ -97,12 +123,186 @@ adminApi.get("/overview", async (c) => {
     activeCoupons: activeCoupons[0].n,
     downloads: downloads[0].n,
     pendingReviews: pendingReviews[0].n,
-    recentOrders: recentOrders.map((o) => ({ ...o, createdAt: o.createdAt })),
+    recentOrders,
     activity,
     topProducts,
     monthly: monthly.rows,
     byCategory: byCategory.rows,
   });
+});
+
+/**
+ * Date-ranged analytics.
+ *
+ * Every figure is aggregated from `orders`, `order_items`, `downloads` and
+ * `users` — nothing here is synthesised. The dashboard's charts call this so
+ * they show the store's real history rather than a decorative series.
+ */
+adminApi.get("/analytics", async (c) => {
+  const db = getDb();
+  const range = c.req.query("range") ?? "30d";
+  const days = range === "24h" ? 1 : range === "7d" ? 7 : range === "90d" ? 90 : 30;
+  const bucket = days <= 1 ? "hour" : "day";
+  const since = new Date(Date.now() - days * 86_400_000);
+  since.setMinutes(0, 0, 0);
+
+  const series = await db.execute<{ bucket: string; revenue: number; orders: number }>(sql`
+    select to_char(date_trunc(${bucket}, created_at), ${bucket === "hour" ? sql`'YYYY-MM-DD HH24:00'` : sql`'YYYY-MM-DD'`}) as bucket,
+           coalesce(sum(total), 0)::int as revenue,
+           count(*)::int as orders
+    from orders
+    where status = 'paid' and created_at >= ${since.toISOString()}
+    group by 1
+    order by 1
+  `);
+
+  // Buckets with no sales must still appear, or the chart lies about activity.
+  const filled: { day: string; revenue: number; orders: number }[] = [];
+  const step = bucket === "hour" ? 3_600_000 : 86_400_000;
+  const start = bucket === "hour" ? since : new Date(since.toISOString().slice(0, 10));
+  const byKey = new Map<string, { bucket: string; revenue: number; orders: number }>(
+    series.rows.map((r): [string, { bucket: string; revenue: number; orders: number }] => [r.bucket, r]),
+  );
+  for (let ms = start.getTime(); ms <= Date.now(); ms += step) {
+    const d = new Date(ms);
+    const key =
+      bucket === "hour"
+        ? `${d.toISOString().slice(0, 10)} ${String(d.getUTCHours()).padStart(2, "0")}:00`
+        : d.toISOString().slice(0, 10);
+    const hit = byKey.get(key);
+    filled.push({
+      day:
+        bucket === "hour"
+          ? `${String(d.getUTCHours()).padStart(2, "0")}:00`
+          : d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
+      revenue: hit?.revenue ?? 0,
+      orders: hit?.orders ?? 0,
+    });
+  }
+
+  const [byLicense, byCategory, topProducts, downloadSummary, customerStats, paymentStatus] =
+    await Promise.all([
+      db.execute<{ name: string; revenue: number; n: number }>(sql`
+        select oi.license as name,
+               coalesce(sum(oi.unit_price), 0)::int as revenue,
+               count(*)::int as n
+        from order_items oi
+        join orders o on o.id = oi.order_id
+        where o.status = 'paid' and o.created_at >= ${since.toISOString()}
+        group by 1 order by 2 desc
+      `),
+      db.execute<{ name: string; revenue: number }>(sql`
+        select c.name,
+               coalesce(sum(oi.unit_price), 0)::int as revenue
+        from order_items oi
+        join orders o on o.id = oi.order_id
+        join products p on p.id = oi.product_id
+        join categories c on c.id = p.category_id
+        where o.status = 'paid' and o.created_at >= ${since.toISOString()}
+        group by 1 order by 2 desc limit 6
+      `),
+      db.execute<{
+        name: string;
+        slug: string;
+        units: number;
+        revenue: number;
+        art_from: string;
+        art_to: string;
+        art_kind: string;
+      }>(sql`
+        select p.name, p.slug,
+               count(oi.id)::int as units,
+               coalesce(sum(oi.unit_price), 0)::int as revenue,
+               p.art_from, p.art_to, p.art_kind
+        from order_items oi
+        join orders o on o.id = oi.order_id
+        join products p on p.id = oi.product_id
+        where o.status = 'paid' and o.created_at >= ${since.toISOString()}
+        group by p.id, p.name, p.slug, p.art_from, p.art_to, p.art_kind
+        order by units desc limit 6
+      `),
+      db.execute<{ total: number; unique_users: number; last_24h: number }>(sql`
+        select count(*)::int as total,
+               count(distinct user_id)::int as unique_users,
+               count(*) filter (where created_at >= now() - interval '24 hours')::int as last_24h
+        from downloads
+        where created_at >= ${since.toISOString()}
+      `),
+      db.execute<{ total: number; new_in_range: number; active_buyers: number }>(sql`
+        select (select count(*)::int from users where role = 'customer') as total,
+               (select count(*)::int from users where role = 'customer' and created_at >= ${since.toISOString()}) as new_in_range,
+               (select count(distinct user_id)::int from orders where status = 'paid' and created_at >= ${since.toISOString()}) as active_buyers
+      `),
+      db.execute<{ status: string; n: number }>(sql`
+        select status, count(*)::int as n from orders group by 1
+      `),
+    ]);
+
+  /**
+   * Trading quality for the range: average order value, refund rate and the
+   * share of customers who have bought more than once. These were previously
+   * hardcoded in the UI and disagreed with the KPI row above them.
+   */
+  const quality = await db.execute<{
+    aov: number;
+    paid_orders: number;
+    refunded_orders: number;
+    repeat_customers: number;
+    buyers: number;
+  }>(sql`
+    select
+      coalesce(round(avg(total)), 0)::int as aov,
+      (select count(*)::int from orders where status = 'paid' and created_at >= ${since.toISOString()}) as paid_orders,
+      (select count(*)::int from orders where status = 'refunded' and created_at >= ${since.toISOString()}) as refunded_orders,
+      (select count(*)::int from (
+         select user_id from orders
+         where status = 'paid' and created_at >= ${since.toISOString()} and user_id is not null
+         group by user_id having count(*) > 1
+       ) r) as repeat_customers,
+      (select count(distinct user_id)::int from orders where status = 'paid' and created_at >= ${since.toISOString()} and user_id is not null) as buyers
+    from orders
+    where status = 'paid' and created_at >= ${since.toISOString()}
+  `);
+
+  const q = quality.rows[0] ?? { aov: 0, paid_orders: 0, refunded_orders: 0, repeat_customers: 0, buyers: 0 };
+  const settled = q.paid_orders + q.refunded_orders;
+
+  return c.json({
+    range,
+    series: filled,
+    byLicense: byLicense.rows,
+    byCategory: byCategory.rows,
+    topProducts: topProducts.rows,
+    downloads: downloadSummary.rows[0] ?? { total: 0, unique_users: 0, last_24h: 0 },
+    customers: customerStats.rows[0] ?? { total: 0, new_in_range: 0, active_buyers: 0 },
+    paymentStatus: paymentStatus.rows,
+    quality: {
+      aov: q.aov,
+      refundRate: settled ? q.refunded_orders / settled : 0,
+      repeatRate: q.buyers ? q.repeat_customers / q.buyers : 0,
+    },
+  });
+});
+
+/** Outbound email log — what customers were told, and what failed. */
+adminApi.get("/notifications", async (c) => {
+  const db = getDb();
+  const limit = Math.min(200, Number(c.req.query("limit") ?? 60) || 60);
+  const rows = await db
+    .select()
+    .from(t.notifications)
+    .orderBy(desc(t.notifications.createdAt))
+    .limit(limit);
+
+  const [counts] = await db
+    .select({
+      sent: sql<number>`count(*) filter (where status = 'sent')::int`,
+      failed: sql<number>`count(*) filter (where status = 'failed')::int`,
+      skipped: sql<number>`count(*) filter (where status = 'skipped')::int`,
+    })
+    .from(t.notifications);
+
+  return c.json({ notifications: rows, counts, transport: activeTransport() });
 });
 
 /* ---------------------------------------------------------------- products */
@@ -392,6 +592,37 @@ adminApi.get("/products/:slug", async (c) => {
   });
 });
 
+/**
+ * Tell every licence holder about a new version.
+ *
+ * Deliberately fire-and-forget and batched: a product with a thousand owners
+ * must not hold the admin's PATCH open, and one failed address must not stop
+ * the rest.
+ */
+async function notifyProductUpdate(input: {
+  productId: string;
+  productName: string;
+  version: string;
+  notes: string;
+}) {
+  const db = getDb();
+  const owners = await db
+    .select({ email: t.users.email, userId: t.users.id })
+    .from(t.licenses)
+    .innerJoin(t.users, eq(t.users.id, t.licenses.userId))
+    .where(and(eq(t.licenses.productId, input.productId), eq(t.licenses.status, "active")));
+
+  for (const owner of owners) {
+    await productUpdate({
+      to: owner.email,
+      userId: owner.userId,
+      productName: input.productName,
+      version: input.version,
+      notes: input.notes,
+    });
+  }
+}
+
 adminApi.patch("/products/:slug", zValidator("json", productInput.partial()), async (c) => {
   const input = c.req.valid("json");
   const db = getDb();
@@ -456,6 +687,22 @@ adminApi.patch("/products/:slug", zValidator("json", productInput.partial()), as
 
   if (input.tiers) await writeTiers(existing.id, input.tiers);
   if (input.changelog) await writeChangelog(existing.id, input.changelog);
+
+  /**
+   * A version bump is a customer-facing event: everyone who owns the product is
+   * told, because lifetime updates are part of what they paid for. Only a real
+   * version change notifies — editing copy must not mail the whole list.
+   */
+  const newVersion = input.version ?? (input.changelog?.[0]?.version || undefined);
+  if (newVersion && newVersion !== existing.version && updated.status === "published") {
+    const notes = input.changelog?.[0]?.notes?.join("; ") ?? "Maintenance and fixes.";
+    void notifyProductUpdate({
+      productId: existing.id,
+      productName: updated.name,
+      version: newVersion,
+      notes,
+    });
+  }
 
   const verb =
     input.status && input.status !== existing.status

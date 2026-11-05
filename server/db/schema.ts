@@ -680,6 +680,29 @@ export const seedState = pgTable("seed_state", {
   appliedAt: timestamp("applied_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Outbound transactional email, recorded whether or not the provider accepted
+ * it. The owner needs to answer "was this customer told?" without server logs.
+ */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: id(),
+    toEmail: text("to_email").notNull(),
+    template: text("template").notNull(),
+    subject: text("subject").notNull(),
+    status: text("status", { enum: ["sent", "failed", "skipped"] })
+      .notNull()
+      .default("sent"),
+    transport: text("transport").notNull().default("log"),
+    error: text("error"),
+    userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+    orderId: text("order_id").references(() => orders.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("notifications_created_idx").on(t.createdAt), index("notifications_to_idx").on(t.toEmail)],
+);
+
 export const activityLog = pgTable(
   "activity_log",
   {

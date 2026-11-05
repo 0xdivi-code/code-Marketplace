@@ -5,6 +5,7 @@
  * once so the storefront reads identical data from real rows afterwards. Safe to
  * re-run: everything is upserted on natural keys.
  */
+import { basename } from "node:path";
 import { sql } from "drizzle-orm";
 import { getDb, initDb } from "./client";
 import { and, eq } from "drizzle-orm";
@@ -190,7 +191,7 @@ export async function seed({ log = true, force = false }: { log?: boolean; force
         downloads, licenses, payments, order_items, orders,
         reviews, collection_items, collections, pricing_tiers,
         product_versions, product_files, products, categories, authors, coupons,
-        homepage_sections, announcements, activity_log
+        homepage_sections, announcements, activity_log, bundles
       restart identity cascade
     `);
   } else if (productCount > 0 && categoryCount > 0) {
@@ -386,11 +387,33 @@ export async function seed({ log = true, force = false }: { log?: boolean; force
       })
       .onConflictDoNothing()
       .returning({ id: t.users.id });
-    if (row) customerIdByEmail.set(c.email, row.id);
+    if (row) {
+      customerIdByEmail.set(c.email, row.id);
+    } else {
+      /**
+       * The account survived a re-seed (users are deliberately kept). Without
+       * this lookup every historical order would be written with a null buyer
+       * and the admin dashboard would show a store that nobody bought from.
+       */
+      const [existing] = await db
+        .select({ id: t.users.id })
+        .from(t.users)
+        .where(eq(sql`lower(${t.users.email})`, c.email.toLowerCase()))
+        .limit(1);
+      if (existing) customerIdByEmail.set(c.email, existing.id);
+    }
   }
 
-  for (const o of mockOrders) {
-    const email = mockCustomers[0]?.email ?? "buyer@example.com";
+  /**
+   * Spread the sample orders across the sample customers.
+   *
+   * Attaching every historical order to the first customer made the dashboard
+   * look like a single account bought the whole store, and every "recent order"
+   * row showed the same name.
+   */
+  for (const [idx, o] of mockOrders.entries()) {
+    const buyer = mockCustomers[idx % Math.max(1, mockCustomers.length)];
+    const email = buyer?.email ?? "buyer@example.com";
     const userId = customerIdByEmail.get(email) ?? null;
     const status = o.status === "completed" ? "paid" : o.status === "refunded" ? "refunded" : "pending";
     const [order] = await db
@@ -399,13 +422,13 @@ export async function seed({ log = true, force = false }: { log?: boolean; force
         number: o.id,
         userId,
         email,
-        name: mockCustomers[0]?.name ?? "Customer",
+        name: buyer?.name ?? "Customer",
         status,
         subtotal: o.total,
         discount: 0,
         tax: 0,
         total: o.total,
-        country: "Portugal",
+        country: buyer?.country ?? "Portugal",
         createdAt: new Date(o.date),
       })
       .returning({ id: t.orders.id });
@@ -657,7 +680,14 @@ export async function seedAdmin(log = true) {
   }
 }
 
-if (process.argv[1]?.endsWith("seed.ts")) {
+/**
+ * Run only when this file is the entry point.
+ *
+ * `endsWith("seed.ts")` also matches `reseed.ts`, which imports this module —
+ * the auto-run then fired a second, non-forced seed alongside the caller and
+ * exited the process before it finished.
+ */
+if (process.argv[1] && basename(process.argv[1]) === "seed.ts") {
   seed()
     .then(() => process.exit(0))
     .catch((e) => {

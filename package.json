@@ -14,7 +14,14 @@
     "db:reset": "tsx server/scripts/reset.ts",
     "dev:all": "concurrently -n api,web -c green,cyan \"npm:api\" \"npm:dev\"",
     "test:payments": "tsx server/scripts/test-payments.ts",
-    "typecheck:server": "tsc --noEmit -p tsconfig.server.json"
+    "typecheck:server": "tsc -p tsconfig.server.json --noEmit",
+    "test:journey": "tsx server/scripts/test-journey.ts",
+    "test": "npm run typecheck && npm run test:payments",
+    "seed": "tsx server/scripts/seed.ts",
+    "reseed": "tsx server/scripts/reseed.ts",
+    "migrate": "tsx server/scripts/migrate.ts",
+    "backup": "tsx server/scripts/backup.ts",
+    "restore": "tsx server/scripts/restore.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.15",
