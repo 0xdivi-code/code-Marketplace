@@ -10,14 +10,38 @@
  *
  * Requires the dev server (or a preview build) on PORT, default 5175.
  */
+import { existsSync } from "node:fs";
 import puppeteer from "puppeteer-core";
 
 const BASE = process.env.BASE_URL ?? `http://localhost:${process.env.PORT ?? 5175}`;
 const WIDTHS = [320, 360, 390, 414, 480, 640, 768, 834, 1024, 1024, 1280, 1440];
 const PAGES = ["/", "/browse", "/bundles", "/collections", "/item/quill-cms", "/free", "/blog", "/checkout"];
 
+// puppeteer-core ships no browser, so the path has to come from somewhere. Fail
+// with an instruction rather than a stack trace deep inside the launcher.
+const executablePath =
+  process.env.CHROME ??
+  ["/tmp/chromium", "/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/google-chrome"].find((p) =>
+    existsSync(p),
+  );
+
+if (!executablePath || !existsSync(executablePath)) {
+  console.error(
+    [
+      "No Chrome/Chromium binary found.",
+      "",
+      "Point CHROME at one, e.g.",
+      "  CHROME=/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome npm run test:responsive",
+      "",
+      "or install one with",
+      "  npx @puppeteer/browsers install chrome-headless-shell@stable",
+    ].join("\n"),
+  );
+  process.exit(1);
+}
+
 const browser = await puppeteer.launch({
-  executablePath: process.env.CHROME ?? "/tmp/chromium",
+  executablePath,
   args: ["--no-sandbox"],
   env: { ...process.env, LD_LIBRARY_PATH: process.env.LD_LIBRARY_PATH ?? "/tmp/al2023/lib" },
 });

@@ -22,11 +22,17 @@ ok=0; skip=0; fail=0
 
 get() {
   local file="$1" remote="$2"
-  if [ -s "$OUT/$file.webp" ]; then
+  if [ -s "$OUT/$file.webp" ] && head -c 4 "$OUT/$file.webp" | grep -q RIFF; then
     skip=$((skip+1)); return
   fi
   if curl -fsSL --retry 2 --max-time 30 "$ORIGIN/$remote" -o "$OUT/$file.webp"; then
-    ok=$((ok+1))
+    if head -c 4 "$OUT/$file.webp" | grep -q RIFF; then
+      ok=$((ok+1))
+    else
+      echo "  !! not a webp (server returned HTML): $remote"
+      rm -f "$OUT/$file.webp"
+      fail=$((fail+1))
+    fi
   else
     echo "  !! failed: $remote"
     rm -f "$OUT/$file.webp"
