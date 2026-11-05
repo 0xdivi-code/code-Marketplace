@@ -2,6 +2,7 @@ import * as React from "react";
 import { Link, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
+import { CategoryGlyph } from "@/lib/category-icons";
 import { ProductCard } from "@/components/site/product-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -109,10 +110,9 @@ export default function CategoryPage() {
                 className="group flex items-center justify-between rounded-md border border-line p-3.5 transition-colors hover:bg-surface-2"
               >
                 <span className="flex items-center gap-2.5">
-                  <span
-                    className="size-7 rounded"
-                    style={{ background: `linear-gradient(135deg, ${c.from}, ${c.to})` }}
-                  />
+                  <span className="grid size-7 place-items-center rounded border border-line bg-surface-2 text-ink-2">
+                    <CategoryGlyph glyph={c.glyph} className="size-3.5" />
+                  </span>
                   <span className="text-[0.8125rem] font-medium">{c.name}</span>
                 </span>
                 <ArrowUpRight className="size-3.5 text-ink-3 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />

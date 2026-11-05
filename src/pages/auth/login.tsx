@@ -19,6 +19,9 @@ export default function LoginPage() {
   const [remember, setRemember] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+  // Set when the account has an authenticator enrolled.
+  const [needTotp, setNeedTotp] = React.useState(false);
+  const [totp, setTotp] = React.useState("");
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,13 +30,29 @@ export default function LoginPage() {
       setError("Use a valid email and your password.");
       return;
     }
+    if (needTotp && totp.trim().length < 6) {
+      setError("Enter the six-digit code from your authenticator, or a recovery code.");
+      return;
+    }
     setLoading(true);
     try {
-      const user = await authApi.login(email.trim(), password);
+      const user = await authApi.login(email.trim(), password, needTotp ? totp.trim() : undefined);
       toast.success(`Welcome back, ${user.name.split(" ")[0]}`);
+      // A recovery code is longer than six digits — let people paste it.
       navigate("/account");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not reach the server.");
+      if (err instanceof ApiError) {
+        const data = err.data as { needTotp?: boolean } | undefined;
+        if (data?.needTotp) {
+          setNeedTotp(true);
+          setTotp("");
+          setError(err.message);
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError("Could not reach the server.");
+      }
     } finally {
       setLoading(false);
     }
@@ -102,6 +121,25 @@ export default function LoginPage() {
             </button>
           </div>
         </Field>
+
+        {needTotp && (
+          <Field
+            label="Two-factor code"
+            htmlFor="totp"
+            hint="From your authenticator app, or one of your saved recovery codes."
+          >
+            <Input
+              id="totp"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              value={totp}
+              onChange={(e) => setTotp(e.target.value)}
+              placeholder="123456"
+              className="font-mono tracking-[0.2em]"
+            />
+          </Field>
+        )}
 
         <div className="flex items-center justify-between">
           <label className="flex cursor-pointer items-center gap-2 text-[0.75rem] text-ink-2">

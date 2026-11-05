@@ -123,8 +123,8 @@ export async function refreshAuth(force = false): Promise<void> {
 /* --------------------------------------------------------------- auth calls */
 
 export const authApi = {
-  login: async (email: string, password: string) => {
-    const res = await api.post<{ user: SessionUser }>("/auth/login", { email, password });
+  login: async (email: string, password: string, totp?: string) => {
+    const res = await api.post<{ user: SessionUser }>("/auth/login", { email, password, totp });
     setAuth({ user: res.user });
     return res.user;
   },
@@ -139,6 +139,8 @@ export const authApi = {
   },
   forgot: (email: string) => api.post<{ message: string }>("/auth/forgot-password", { email }),
   reset: (token: string, password: string) => api.post("/auth/reset-password", { token, password }),
+  changePassword: (currentPassword: string, password: string) =>
+    api.post("/auth/change-password", { currentPassword, password }),
   verify: (token: string) => api.post("/auth/verify-email", { token }),
 
   adminLogin: async (email: string, password: string, totp?: string) => {

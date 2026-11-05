@@ -116,9 +116,12 @@ auth.post(
 
 auth.post(
   "/login",
-  zValidator("json", z.object({ email: emailSchema, password: z.string().min(1) })),
+  zValidator(
+    "json",
+    z.object({ email: emailSchema, password: z.string().min(1), totp: z.string().trim().optional() }),
+  ),
   async (c) => {
-    const { email, password } = c.req.valid("json");
+    const { email, password, totp } = c.req.valid("json");
     const ip = clientIp(c);
 
     const byIp = await rateLimit(`login:${ip}`, 20, 15 * 60);
@@ -136,6 +139,27 @@ auth.post(
     }
     if (user.role !== "customer") {
       return c.json({ error: "Staff accounts must sign in through the admin console." }, 403);
+    }
+
+    // Second factor, if the shopper enrolled an authenticator.
+    if (user.totpEnabledAt) {
+      if (!totp) {
+        return c.json({ error: "Enter your two-factor code.", needTotp: true }, 401);
+      }
+      const { verifySecret, hashCode } = await import("../lib/totp");
+      const asTotp = totp.replace(/\s/g, "").length === 6 && verifySecret(user.totpSecret!, totp);
+      // Recovery codes are single use: a match is consumed immediately.
+      const asRecovery = !asTotp && (user.recoveryCodes ?? []).includes(hashCode(totp));
+      if (!asTotp && !asRecovery) {
+        await logActivity({ actor: email, action: "failed a two-factor challenge", target: ip, kind: "auth", ip });
+        return c.json({ error: "That code is not valid.", needTotp: true }, 401);
+      }
+      if (asRecovery) {
+        await getDb()
+          .update(t.users)
+          .set({ recoveryCodes: (user.recoveryCodes ?? []).filter((c) => c !== hashCode(totp)) })
+          .where(eq(t.users.id, user.id));
+      }
     }
 
     await resetRateLimit(`login:${email}`);
@@ -162,6 +186,63 @@ auth.get("/me", async (c) => {
   const user = await currentUser(c);
   return c.json({ user: user ? publicUser(user) : null });
 });
+
+/* -------------------------------------------------------- change password */
+
+/**
+ * Changing a password while signed in needs the current one — otherwise a
+ * borrowed session is enough to lock the real owner out of their library.
+ * Every other device is signed out; this one is handed a fresh session so the
+ * shopper is not bounced to the login screen mid-visit.
+ */
+auth.post(
+  "/change-password",
+  zValidator(
+    "json",
+    z.object({ currentPassword: z.string().min(1), password: passwordSchema }),
+  ),
+  async (c) => {
+    const user = await currentUser(c);
+    if (!user) return c.json({ error: "Not signed in" }, 401);
+
+    const { currentPassword, password } = c.req.valid("json");
+    const ip = clientIp(c);
+    const limited = await rateLimit(`change-password:${user.id}`, 6, 15 * 60);
+    if (!limited.ok) return tooMany(c, limited.retryAfterSeconds);
+
+    if (!(await verifyPassword(currentPassword, user.passwordHash))) {
+      await logActivity({
+        actor: user.email,
+        action: "failed to change their password",
+        target: user.email,
+        kind: "auth",
+        ip,
+      });
+      return c.json({ error: "That password is not right." }, 401);
+    }
+    if (await verifyPassword(password, user.passwordHash)) {
+      return c.json({ error: "That is already your password. Pick a new one." }, 400);
+    }
+
+    const db = getDb();
+    await db
+      .update(t.users)
+      .set({ passwordHash: await hashPassword(password), updatedAt: new Date() })
+      .where(eq(t.users.id, user.id));
+
+    // Every session dies, then this device gets a new cookie.
+    await destroyAllSessions(user.id, "customer");
+    await createSession(c, user, "customer");
+    await logActivity({
+      actor: user.email,
+      action: "changed their password",
+      target: user.email,
+      kind: "auth",
+      ip,
+    });
+    return c.json({ ok: true });
+  },
+);
 
 /* --------------------------------------------------------- verify email */
 
@@ -260,6 +341,90 @@ auth.post(
       actor: "system",
       action: "completed a password reset",
       target: row.userId,
+      kind: "auth",
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true });
+  },
+);
+
+/* ------------------------------------------------------- two-factor auth */
+
+/**
+ * Customers can protect their own account with an authenticator app. The
+ * secret is written on setup but only counts once a code proves the app is
+ * actually working — otherwise a botched scan would lock the shopper out.
+ */
+auth.get("/2fa", async (c) => {
+  const user = await currentUser(c);
+  if (!user) return c.json({ error: "Not signed in" }, 401);
+  return c.json({
+    enabled: Boolean(user.totpEnabledAt),
+    enabledAt: user.totpEnabledAt ?? null,
+    recoveryCodesLeft: (user.recoveryCodes ?? []).length,
+  });
+});
+
+auth.post("/2fa/setup", async (c) => {
+  const user = await currentUser(c);
+  if (!user) return c.json({ error: "Not signed in" }, 401);
+  if (user.totpEnabledAt) return c.json({ error: "Two-factor is already on." }, 400);
+  const { generateSecret, otpauthUri } = await import("../lib/totp");
+  const secret = generateSecret();
+  await getDb().update(t.users).set({ totpSecret: secret }).where(eq(t.users.id, user.id));
+  return c.json({ secret, uri: otpauthUri(user.email, secret, "Kiln") });
+});
+
+auth.post(
+  "/2fa/enable",
+  zValidator("json", z.object({ code: z.string().trim().min(6).max(6) })),
+  async (c) => {
+    const user = await currentUser(c);
+    if (!user) return c.json({ error: "Not signed in" }, 401);
+    if (user.totpEnabledAt) return c.json({ error: "Two-factor is already on." }, 400);
+    if (!user.totpSecret) return c.json({ error: "Start setup first." }, 400);
+
+    const { verifySecret, generateRecoveryCodes, hashCode } = await import("../lib/totp");
+    if (!verifySecret(user.totpSecret, c.req.valid("json").code)) {
+      return c.json({ error: "That code is not valid. Check your authenticator app." }, 400);
+    }
+    const codes = generateRecoveryCodes();
+    await getDb()
+      .update(t.users)
+      .set({
+        totpEnabledAt: new Date(),
+        recoveryCodes: codes.map(hashCode),
+        updatedAt: new Date(),
+      })
+      .where(eq(t.users.id, user.id));
+    await logActivity({
+      actor: user.email,
+      action: "enabled two-factor authentication",
+      target: user.email,
+      kind: "auth",
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true, recoveryCodes: codes });
+  },
+);
+
+auth.post(
+  "/2fa/disable",
+  zValidator("json", z.object({ password: z.string().min(1) })),
+  async (c) => {
+    const user = await currentUser(c);
+    if (!user) return c.json({ error: "Not signed in" }, 401);
+    if (!(await verifyPassword(c.req.valid("json").password, user.passwordHash))) {
+      return c.json({ error: "That password is not right." }, 401);
+    }
+    await getDb()
+      .update(t.users)
+      .set({ totpSecret: null, totpEnabledAt: null, recoveryCodes: [], updatedAt: new Date() })
+      .where(eq(t.users.id, user.id));
+    await logActivity({
+      actor: user.email,
+      action: "turned off two-factor authentication",
+      target: user.email,
       kind: "auth",
       ip: clientIp(c),
     });

@@ -22,6 +22,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useCartTotals, useSession, useTheme, useUi, useWishlist } from "@/lib/store";
 import { categories } from "@/data/catalog";
+import { CategoryGlyph } from "@/lib/category-icons";
 import { KilnLogo } from "./logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -298,10 +299,9 @@ export function SiteHeader() {
                       onClick={() => setMegaOpen(false)}
                       className="group flex items-start gap-3 rounded-md px-2 py-2.5 transition-colors hover:bg-surface-2"
                     >
-                      <span
-                        className="mt-0.5 size-8 shrink-0 rounded-[7px]"
-                        style={{ background: `linear-gradient(135deg, ${c.from}, ${c.to})` }}
-                      />
+                      <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-[7px] border border-line bg-surface-2 text-ink transition-colors group-hover:border-line-strong group-hover:bg-surface">
+                        <CategoryGlyph glyph={c.glyph} className="size-[1.05rem]" />
+                      </span>
                       <span>
                         <span className="block text-[0.8125rem] font-medium text-ink group-hover:text-ink">
                           {c.name}
@@ -321,9 +321,11 @@ export function SiteHeader() {
                     {categories.slice(0, 5).map((c) => (
                       <span
                         key={c.slug}
-                        className="size-7 rounded-full border-2 border-surface"
-                        style={{ background: `linear-gradient(135deg, ${c.from}, ${c.to})` }}
-                      />
+                        title={c.name}
+                        className="grid size-7 place-items-center rounded-full border-2 border-surface bg-surface-2 text-ink-2"
+                      >
+                        <CategoryGlyph glyph={c.glyph} className="size-3" />
+                      </span>
                     ))}
                   </div>
                   <Link
@@ -426,10 +428,9 @@ function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
                       onClick={onClose}
                       className="flex items-center gap-2 rounded-sm border border-line p-2 text-[0.75rem] hover:bg-surface-2"
                     >
-                      <span
-                        className="size-6 shrink-0 rounded"
-                        style={{ background: `linear-gradient(135deg, ${c.from}, ${c.to})` }}
-                      />
+                      <span className="grid size-6 shrink-0 place-items-center rounded bg-surface-2 text-ink-2">
+                        <CategoryGlyph glyph={c.glyph} className="size-3.5" />
+                      </span>
                       <span className="truncate">{c.name}</span>
                     </Link>
                   ))}

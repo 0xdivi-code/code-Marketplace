@@ -8,6 +8,7 @@ import { Field, Input, Textarea } from "@/components/ui/field";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
+import { CATEGORY_GLYPHS, categoryIcon, CategoryGlyph } from "@/lib/category-icons";
 
 interface AdminCategory {
   id: string;
@@ -33,6 +34,7 @@ export default function AdminCategories() {
     blurb: "",
     from: "#17392b",
     to: "#4d8a68",
+    glyph: "layers",
   });
   const cat = categories.find((c) => c.slug === editing);
 
@@ -60,6 +62,7 @@ export default function AdminCategories() {
       blurb: cat?.blurb ?? "",
       from: cat?.from ?? "#17392b",
       to: cat?.to ?? "#4d8a68",
+      glyph: cat?.glyph ?? "layers",
     });
   }, [open, cat?.slug]);
 
@@ -73,6 +76,7 @@ export default function AdminCategories() {
         blurb: form.blurb.trim(),
         from: form.from,
         to: form.to,
+        glyph: form.glyph,
       };
       if (cat) {
         await api.patch(`/admin/categories/${cat.slug}`, body);
@@ -192,7 +196,9 @@ export default function AdminCategories() {
               <div className="grid grid-cols-2 gap-1.5">
                 {categories.slice(0, 6).map((c) => (
                   <div key={c.slug} className="flex items-center gap-1.5">
-                    <span className="size-4 rounded" style={{ background: `linear-gradient(135deg, ${c.from}, ${c.to})` }} />
+                    <span className="grid size-4 shrink-0 place-items-center rounded bg-surface text-ink-2">
+                      <CategoryGlyph glyph={c.glyph} className="size-2.5" />
+                    </span>
                     <span className="truncate text-[0.625rem]">{c.name}</span>
                   </div>
                 ))}
@@ -276,6 +282,42 @@ export default function AdminCategories() {
                   />
                 </div>
               </Field>
+            </div>
+
+            <div>
+              <p className="mb-2 text-[0.75rem] font-medium">Menu icon</p>
+              <div
+                role="radiogroup"
+                aria-label="Menu icon"
+                className="grid max-h-40 grid-cols-8 gap-1.5 overflow-y-auto rounded-md border border-line p-2"
+              >
+                {CATEGORY_GLYPHS.map((name) => {
+                  const Icon = categoryIcon(name);
+                  const active = form.glyph === name;
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      aria-label={name}
+                      title={name}
+                      onClick={() => setForm((f) => ({ ...f, glyph: name }))}
+                      className={
+                        active
+                          ? "grid size-8 place-items-center rounded-md border border-ink bg-ink text-paper"
+                          : "grid size-8 place-items-center rounded-md border border-line text-ink-2 transition-colors hover:border-line-strong hover:bg-surface-2 hover:text-ink"
+                      }
+                    >
+                      <Icon className="size-4" strokeWidth={1.7} />
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1.5 text-[0.6875rem] text-ink-3">
+                Shown beside the name in the storefront menu. Currently{" "}
+                <span className="font-mono">{form.glyph}</span>.
+              </p>
             </div>
 
           </div>
