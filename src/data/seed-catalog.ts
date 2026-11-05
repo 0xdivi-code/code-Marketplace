@@ -9,6 +9,7 @@
  * normal way to change a running store.
  */
 import { refSrc } from "@/data/ref-images";
+import { projectProducts } from "@/data/project-catalog";
 import type {
   ActivityEntry,
   Author,
@@ -174,6 +175,22 @@ export const seedCategories: Category[] = [
     glyph: "gift",
     src: refSrc("c-graphics"),
   },
+  {
+    slug: "casino-gaming",
+    name: "Casino & Gaming",
+    blurb: "Slots, originals and crypto-native betting front-ends.",
+    from: "#1b1035",
+    to: "#5b2a86",
+    glyph: "gamepad",
+  },
+  {
+    slug: "crypto-launchpad",
+    name: "Crypto & Launchpads",
+    blurb: "Token launches, presales and swap interfaces.",
+    from: "#0f2a1c",
+    to: "#5fa83c",
+    glyph: "rocket",
+  },
 ]
 
 export const seedAuthors: Author[] = [
@@ -239,6 +256,9 @@ export const seedAuthors: Author[] = [
 ]
 
 export const seedProducts: Product[] = [
+  // casino + launchpad products, authored from their own screenshots
+  ...projectProducts,
+
   {
     slug: "forge-saas-starter",
     name: "Forge — SaaS Starter",

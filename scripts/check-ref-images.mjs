@@ -72,6 +72,20 @@ for (const k of undownloadable) {
   problems.push(`"${k}" is in the manifest but not in fetch-ref-images.sh — run gen-fetch-script.mjs`);
 }
 
+/*
+ * Project_Images are the marketplace's own screenshots, committed under
+ * public/img/products by `npm run art:projects`. They are referenced by the
+ * generated project-images manifest rather than by catalog keys, so they are
+ * validated separately: a product pointing at a file that is not on disk would
+ * render a broken cover, which is exactly what this guard exists to prevent.
+ */
+const projectSrc = read("src/data/project-images.ts");
+const projectFiles = [...projectSrc.matchAll(/"\/img\/products\/([^"]+)"/g)].map((m) => m[1]);
+const missingProject = projectFiles.filter((f) => !existsSync(`${root}public/img/products/${f}`));
+for (const f of missingProject) {
+  problems.push(`public/img/products/${f} is in project-images.ts but not on disk — run npm run art:projects`);
+}
+
 const refDir = `${root}public/img/ref`;
 if (existsSync(refDir)) {
   const present = new Set(readdirSync(refDir).filter((f) => f.endsWith(".webp")).map((f) => f.replace(/\.webp$/, "")));
@@ -94,5 +108,5 @@ if (problems.length) {
 }
 
 console.log(
-  `Reference images OK — ${used.size} keys used, all in the manifest; ${manifest.size} manifest entries, all fetchable.`,
+  `Images OK — ${used.size} catalog keys in the manifest, ${manifest.size} fetchable; ${projectFiles.length} project screenshots present.`,
 );
