@@ -22,7 +22,9 @@
     "migrate": "tsx server/scripts/migrate.ts",
     "backup": "tsx server/scripts/backup.ts",
     "restore": "tsx server/scripts/restore.ts",
-    "test:responsive": "node scripts/check-responsive.mjs"
+    "test:responsive": "node scripts/check-responsive.mjs",
+    "check:images": "node scripts/check-ref-images.mjs",
+    "fetch:images": "bash scripts/fetch-ref-images.sh"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.15",

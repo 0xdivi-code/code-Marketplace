@@ -460,7 +460,7 @@ export const seedProducts: Product[] = [
     released: "2025-04-11",
     version: "1.9.2",
     license: "Regular",
-    art: art("#4a3f6b", "#8a7bb8", "#f1eef9", "terminal", "p-scripts-code-generic"),
+    art: art("#4a3f6b", "#8a7bb8", "#f1eef9", "terminal", "p-nova-ui-kit"),
     description:
       "Schema-first HTTP API with typed routes, request validation, background jobs, scheduled tasks, OpenAPI generation and structured logs. Ships with a working example domain so you can delete your way to your own product.",
     features: [
