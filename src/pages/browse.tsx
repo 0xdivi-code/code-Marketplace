@@ -250,7 +250,7 @@ export default function BrowsePage() {
             ) : view === "grid" ? (
               <motion.div
                 layout
-                className="grid grid-cols-1 gap-x-5 gap-y-10 sm:grid-cols-2 xl:grid-cols-3"
+                className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 xl:grid-cols-4"
               >
                 <AnimatePresence mode="popLayout">
                   {visible.map((p, i) => (

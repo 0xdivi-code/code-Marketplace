@@ -29,7 +29,7 @@ export function RefImage({
       onError={() => setOk(false)}
       className={cn(
         "absolute inset-0 size-full object-cover",
-        hover && "transition-transform duration-700 group-hover:scale-[1.04]",
+        hover && "transition-transform duration-700 group-hover:scale-[1.04] group-hover/card:scale-[1.03]",
         className,
       )}
     />

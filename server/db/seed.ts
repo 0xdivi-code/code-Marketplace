@@ -215,6 +215,9 @@ export async function seed({ log = true, force = false }: { log?: boolean; force
         from: c.from,
         to: c.to,
         glyph: c.glyph,
+        // the catalogue carries a cover per category; dropping it here left every
+        // category tile on its gradient fallback even after the artwork existed
+        imagePath: c.src ?? null,
         position: i,
       })
       .returning({ id: t.categories.id });

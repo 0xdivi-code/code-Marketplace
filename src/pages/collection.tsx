@@ -112,7 +112,7 @@ export default function CollectionPage() {
                 All collections
               </Link>
             </div>
-            <div className="grid grid-cols-1 gap-x-5 gap-y-9 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 xl:grid-cols-4">
               {items.map((p, i) => (
                 <ProductCard key={p.slug} product={p} index={i} />
               ))}

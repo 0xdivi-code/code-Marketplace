@@ -93,7 +93,7 @@ export default function CategoryPage() {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-x-5 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {list.map((p, i) => (
               <ProductCard key={p.slug} product={p} index={i} />
             ))}
