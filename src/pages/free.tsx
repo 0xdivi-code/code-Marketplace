@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, Download, Gift, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -10,17 +10,43 @@ import { compact } from "@/lib/utils";
 import { useCart, useUi } from "@/lib/store";
 import { toast } from "sonner";
 import { ProductCard } from "@/components/site/product-card";
+import { api, ApiError } from "@/lib/api";
 
 export default function FreePage() {
-  const { add } = useCart();
-  const { setCart } = useUi();
+  const navigate = useNavigate();
 
-  const grab = (slug: string, name: string) => {
-    add(slug, "personal");
-    toast.success(`“${name}” added`, {
-      description: "Free — no checkout required. Download from your library.",
-      action: { label: "Open cart", onClick: () => setCart(true) },
-    });
+  /**
+   * Free code should not need a cart, a checkout or an account. This claims the
+   * file server-side and hands the browser an expiring download token; signing
+   * in is offered afterwards, only because it adds version updates.
+   */
+  const [grabbing, setGrabbing] = React.useState<string | null>(null);
+  const grab = async (slug: string, name: string) => {
+    setGrabbing(slug);
+    try {
+      const res = await api.post<{ url: string; filename: string; inLibrary: boolean }>(
+        `/free/${slug}/claim`,
+        {},
+      );
+      window.location.href = res.url;
+      toast.success(`Downloading “${name}”`, {
+        description: res.inLibrary
+          ? "Saved to your library — you'll be told about updates."
+          : "Create a free account to be notified about new versions.",
+        action: res.inLibrary ? undefined : { label: "Sign up", onClick: () => navigate("/register") },
+      });
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) {
+        toast.error(err.message, {
+          description: "A free account lifts the limit.",
+          action: { label: "Create one", onClick: () => navigate("/register") },
+        });
+      } else {
+        toast.error(err instanceof ApiError ? err.message : "Could not start the download.");
+      }
+    } finally {
+      setGrabbing(null);
+    }
   };
 
   return (
@@ -115,8 +141,8 @@ export default function FreePage() {
                     <Star className="size-3 fill-gold text-gold" /> {p.rating.toFixed(1)} ·{" "}
                     {compact(p.sales)}
                   </span>
-                  <Button size="sm" variant="soft" onClick={() => grab(p.slug, p.name)}>
-                    <Download className="size-3.5" /> Get it
+                  <Button size="sm" variant="soft" onClick={() => void grab(p.slug, p.name)} disabled={grabbing === p.slug}>
+                    <Download className="size-3.5" /> {grabbing === p.slug ? "Preparing…" : "Get it"}
                   </Button>
                 </div>
               </div>

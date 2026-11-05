@@ -57,6 +57,13 @@ interface DetailResponse {
       fee: number;
       reference: string;
       createdAt: string;
+      /** crypto rail details — the evidence an operator reconciles against */
+      network?: string | null;
+      payCurrency?: string | null;
+      payAmount?: string | null;
+      payAddress?: string | null;
+      payinHash?: string | null;
+      expiresAt?: string | null;
     }[];
   };
   customer: {
@@ -322,8 +329,35 @@ export default function AdminOrderDetail() {
                     </div>
                   ))}
                 </dl>
+                <dl className="mt-2 space-y-1.5 border-t border-line pt-2">
+                  {[
+                    ["Mode", payment.mode],
+                    ["Network", payment.network ?? "—"],
+                    ["Coin", payment.payCurrency ?? "—"],
+                    [
+                      "Amount in coin",
+                      payment.payAmount
+                        ? `${Number(payment.payAmount).toFixed(/^usdt|^usdc/i.test(payment.payCurrency ?? "") ? 2 : 6)} ${(
+                            payment.payCurrency ?? ""
+                          ).toUpperCase()}`
+                        : "—",
+                    ],
+                    ["Pay to", payment.payAddress ?? "—"],
+                    ["Chain tx", payment.payinHash ?? "—"],
+                    ["Expires", payment.expiresAt ? new Date(payment.expiresAt).toLocaleString() : "—"],
+                  ].map(([k, v]) => (
+                    <div key={k} className="flex justify-between gap-3">
+                      <dt className="shrink-0 text-ink-3">{k}</dt>
+                      <dd className="truncate font-mono text-ink-2" title={String(v)}>
+                        {v}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
                 <p className="mt-2 border-t border-line pt-2 text-[0.625rem] leading-relaxed text-ink-3">
-                  Demo gateway — no card was charged. Wire a live Stripe key to take real money.
+                  {payment.mode === "live"
+                    ? "Live payment — settle only against a confirmed on-chain transaction."
+                    : "Test mode — this invoice never moved real funds."}
                 </p>
               </>
             ) : (

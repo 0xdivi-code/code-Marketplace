@@ -363,7 +363,7 @@ export const sandbox: Provider = {
     const id = crypto.randomBytes(9).toString("hex");
     const pay = payOption(input.payCurrency);
     return {
-      invoiceUrl: `/api/pay/sandbox/${id}`,
+      invoiceUrl: `/api/webhooks/sandbox/${id}`,
       // Deterministic pseudo-address; never a real wallet.
       payAddress: sandboxAddress(input.payCurrency, id),
       payAmount: (input.priceUsdCents / 100).toFixed(pay?.kind === "stable" ? 2 : 6),
@@ -409,4 +409,36 @@ export async function getProvider(): Promise<Provider> {
 /** Build the payload the sandbox signs, so tests use the real code path. */
 export function signSandboxPayload(payload: unknown, secret: string): string {
   return crypto.createHmac("sha512", secret).update(JSON.stringify(payload)).digest("hex");
+}
+
+/**
+ * The invoice link to show a customer.
+ *
+ * Sandbox links are derived from the provider ref rather than read from the
+ * database: rows written before the route was renamed still point at
+ * `/api/pay/sandbox/...`, and a stored dead link is worse than no link.
+ */
+export function invoiceUrlFor(session: {
+  provider: string;
+  providerRef: string | null;
+  invoiceUrl: string | null;
+}): string | null {
+  if (session.provider === "sandbox" && session.providerRef) {
+    return `/api/webhooks/sandbox/${session.providerRef}`;
+  }
+  return session.invoiceUrl;
+}
+
+/** usdttrc20 → USDT, usdcsol → USDC. Display only; never used for matching. */
+export function tickerFor(code: string): string {
+  const m = code.match(/^(usdt|usdc)/i);
+  return m ? m[1].toUpperCase() : code.toUpperCase();
+}
+
+/** Crypto amounts keep 2dp for stablecoins, 6dp for everything else. */
+export function formatPayAmount(amount: string | null, currency: string): string {
+  if (!amount) return "—";
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return amount;
+  return /^usdt|^usdc/i.test(currency) ? n.toFixed(2) : n.toFixed(6);
 }

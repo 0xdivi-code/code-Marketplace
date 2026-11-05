@@ -1,4 +1,5 @@
-export type License = "personal" | "commercial" | "extended";
+/** The four licence rungs, cheapest first. `developer` is the agency tier. */
+export type License = "personal" | "commercial" | "extended" | "developer";
 
 export type ProductStatus = "published" | "draft" | "review" | "archived";
 
@@ -54,6 +55,9 @@ export interface PricingTier {
   name: string;
   price: number;
   compareAt?: number;
+  /** a real, time-boxed sale price; the charge is min(price, salePrice) while live */
+  salePrice?: number | null;
+  saleEndsAt?: string | null;
   summary: string;
   includes: string[];
   seats: string;
@@ -88,6 +92,9 @@ export interface Product {
   status: ProductStatus;
   price: number;
   compareAt?: number;
+  /** a real, time-boxed sale price; the charge is min(price, salePrice) while live */
+  salePrice?: number | null;
+  saleEndsAt?: string | null;
   rating: number;
   reviews: number;
   sales: number;
@@ -159,6 +166,11 @@ export interface Coupon {
   limit: number;
   expires: string;
   status: "active" | "scheduled" | "expired";
+  /** scope: null means the whole cart */
+  productSlug?: string | null;
+  categorySlug?: string | null;
+  minSubtotal?: number;
+  oncePerCustomer?: boolean;
 }
 
 export interface ActivityEntry {

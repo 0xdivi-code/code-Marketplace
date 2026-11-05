@@ -18,11 +18,30 @@ import { eq } from "drizzle-orm";
 import { getDb } from "../db/client";
 import * as t from "../db/schema";
 import { clientIp } from "../lib/auth";
-import { ipnSecret, normalizeStatus, nowpayments, sandbox, sandboxAddress } from "../lib/payments";
+import {
+  formatPayAmount,
+  ipnSecret,
+  normalizeStatus,
+  nowpayments,
+  sandbox,
+  sandboxAddress,
+  tickerFor,
+} from "../lib/payments";
 import { settleOrder } from "../lib/settlement";
 import { logActivity } from "../lib/activity";
 
 export const webhooks = new Hono();
+
+/**
+ * True once the API is actually listening on a port. The sandbox payment
+ * simulator re-posts its payload over HTTP when it can, so a simulated payment
+ * travels the same path as a real gateway callback; with no listener (tests)
+ * it calls the app in-process instead.
+ */
+let serving = false;
+export function markServing() {
+  serving = true;
+}
 
 type Json = Record<string, unknown>;
 
@@ -188,7 +207,7 @@ webhooks.post("/sandbox", (c) => handle("sandbox", c));
  * posts a signed webhook to our own endpoint, which then goes through exactly
  * the same verification path a real gateway would.
  */
-webhooks.get("/sandbox/invoice/:ref", async (c) => {
+webhooks.get("/sandbox/:ref", async (c) => {
   const ref = c.req.param("ref");
   const db = getDb();
   const [session] = await db
@@ -207,8 +226,11 @@ webhooks.get("/sandbox/invoice/:ref", async (c) => {
       ref,
       orderNumber: order?.number ?? "—",
       amount: (session.priceAmount / 100).toFixed(2),
-      currency: session.payCurrency.toUpperCase(),
-      payAmount: session.payAmount ?? "—",
+      currency: tickerFor(session.payCurrency),
+      // Two decimals for stablecoins, six for volatile coins, exactly as the
+      // invoice screen formats it.
+      payAmount: formatPayAmount(session.payAmount, session.payCurrency),
+      ticker: tickerFor(session.payCurrency),
       address,
       network: session.network ?? "",
       status: expired ? "expired" : session.status,
@@ -218,7 +240,7 @@ webhooks.get("/sandbox/invoice/:ref", async (c) => {
 });
 
 /** Test hook: pretends the customer sent funds, then calls our own webhook. */
-webhooks.post("/sandbox/invoice/:ref/pay", async (c) => {
+webhooks.post("/sandbox/:ref/pay", async (c) => {
   const ref = c.req.param("ref");
   const db = getDb();
   const [session] = await db
@@ -269,11 +291,28 @@ webhooks.post("/sandbox/invoice/:ref/pay", async (c) => {
   const secret = await ipnSecret();
   const signature = sandboxSign(JSON.stringify(payload), secret);
 
-  const res = await fetch(`${new URL(c.req.url).origin}/api/webhooks/sandbox`, {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-nowpayments-sig": signature },
-    body: JSON.stringify(payload),
-  });
+  /**
+   * Deliver the simulated callback through the real webhook handler.
+   *
+   * When the API is serving, re-post over HTTP so the request traverses the
+   * same stack as a genuine gateway call. Under test there is no listener, so
+   * call the app directly — the handler, signature check and dedupe are
+   * identical either way.
+   */
+  // `webhooks` is mounted at /api/webhooks, so in-process paths are relative.
+  const build = () =>
+    new Request("http://localhost/sandbox", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-nowpayments-sig": signature },
+      body: JSON.stringify(payload),
+    });
+  const res = serving
+    ? await fetch(`${new URL(c.req.url).origin}/api/webhooks/sandbox`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-nowpayments-sig": signature },
+        body: JSON.stringify(payload),
+      })
+    : await webhooks.fetch(build());
   const out = (await res.json().catch(() => ({}))) as Json;
   return c.json({ ok: res.ok, forwarded: out }, res.ok ? 200 : res.status);
 });
@@ -297,6 +336,7 @@ function sandboxInvoicePage(v: {
   amount: string;
   currency: string;
   payAmount: string;
+  ticker: string;
   address: string;
   network: string;
   status: string;

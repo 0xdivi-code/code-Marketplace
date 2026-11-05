@@ -53,18 +53,26 @@ export async function entitlement(input: {
     .limit(1);
   if (licence) return { ok: true, license: licence.license, free: false, via: "licence" };
 
-  // A paid order that has not settled yet must not unlock anything.
-  const [pending] = await db
+  // Look at the most recent order for this product: a refund must read as a
+  // refund, not as an older pending order that happens to sort first.
+  const [latest] = await db
     .select({ number: t.orders.number, status: t.orders.status })
     .from(t.orderItems)
     .innerJoin(t.orders, eq(t.orders.id, t.orderItems.orderId))
     .where(and(eq(t.orderItems.productId, input.productId), eq(t.orders.userId, input.userId)))
+    .orderBy(sql`${t.orders.createdAt} desc`)
     .limit(1);
 
+  if (latest?.status === "refunded") {
+    return { ok: false, reason: `Order ${latest.number} was refunded, so this licence is closed.` };
+  }
+  if (latest?.status === "cancelled") {
+    return { ok: false, reason: `Order ${latest.number} was cancelled — nothing was delivered.` };
+  }
   return {
     ok: false,
-    reason: pending
-      ? `Order ${pending.number} is ${pending.status} — downloads unlock once payment confirms.`
+    reason: latest
+      ? `Order ${latest.number} is ${latest.status} — downloads unlock once payment confirms.`
       : "You do not own this product yet.",
   };
 }
@@ -109,7 +117,14 @@ export async function mintDownloadToken(input: {
 }
 
 export type RedeemResult =
-  | { ok: true; file: typeof t.productFiles.$inferSelect; product: typeof t.products.$inferSelect; tokenId: string }
+  | {
+      ok: true;
+      file: typeof t.productFiles.$inferSelect;
+      product: typeof t.products.$inferSelect;
+      tokenId: string;
+      /** the account the link was minted for — the entitlement to re-check */
+      userId: string | null;
+    }
   | { ok: false; reason: string };
 
 /** Consume one use of a token. Single source of truth for link validity. */
@@ -129,12 +144,21 @@ export async function redeemDownloadToken(token: string): Promise<RedeemResult> 
   const [product] = await db.select().from(t.products).where(eq(t.products.id, row.productId!)).limit(1);
   if (!product) return { ok: false, reason: "That product no longer exists." };
 
+  return { ok: true, file, product, tokenId: row.id, userId: row.userId };
+}
+
+/**
+ * Charge one use to a token, after every check has passed.
+ *
+ * Kept separate from `redeemDownloadToken` on purpose: revocation and storage
+ * failures must not silently eat a customer's remaining uses.
+ */
+export async function consumeDownloadToken(tokenId: string): Promise<void> {
+  const db = getDb();
   await db
     .update(t.downloadTokens)
-    .set({ uses: row.uses + 1, usedAt: new Date() })
-    .where(eq(t.downloadTokens.id, row.id));
-
-  return { ok: true, file, product, tokenId: row.id };
+    .set({ uses: sql`${t.downloadTokens.uses} + 1`, usedAt: new Date() })
+    .where(eq(t.downloadTokens.id, tokenId));
 }
 
 /** Append to the audit trail. Called from the route that streams bytes. */

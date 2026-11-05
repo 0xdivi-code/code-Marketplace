@@ -385,18 +385,36 @@ adminApi.get("/orders", async (c) => {
   const items = rows.length
     ? await db.select().from(t.orderItems).where(inArray(t.orderItems.orderId, rows.map((r) => r.id)))
     : [];
+  const payments = rows.length
+    ? await db
+        .select({
+          orderId: t.payments.orderId,
+          provider: t.payments.provider,
+          mode: t.payments.mode,
+          status: t.payments.status,
+          reference: t.payments.reference,
+        })
+        .from(t.payments)
+        .where(inArray(t.payments.orderId, rows.map((r) => r.id)))
+    : [];
 
   return c.json({
-    orders: rows.map((o) => ({
-      ...toOrder(o, items.filter((i) => i.orderId === o.id)),
-      statusRaw: o.status,
-      number: o.number,
-      email: o.email,
-      name: o.name,
-      userId: o.userId,
-      createdAt: o.createdAt,
-      items: items.filter((i) => i.orderId === o.id),
-    })),
+    orders: rows.map((o) => {
+      const pays = payments.filter((p) => p.orderId === o.id);
+      return {
+        ...toOrder({ ...o, payments: pays }, items.filter((i) => i.orderId === o.id)),
+        statusRaw: o.status,
+        number: o.number,
+        email: o.email,
+        name: o.name,
+        userId: o.userId,
+        createdAt: o.createdAt,
+        paymentStatus: pays[0]?.status ?? null,
+        paymentMode: pays[0]?.mode ?? null,
+        paymentProvider: pays[0]?.provider ?? null,
+        items: items.filter((i) => i.orderId === o.id),
+      };
+    }),
   });
 });
 
@@ -682,6 +700,11 @@ adminApi.post(
       value: z.number().int().min(1),
       limit: z.number().int().min(1).max(100000).default(100),
       expires: z.string().optional(),
+      /** blank means the whole cart */
+      productSlug: z.string().trim().max(120).optional(),
+      categorySlug: z.string().trim().max(120).optional(),
+      minSubtotal: z.number().int().min(0).default(0),
+      oncePerCustomer: z.boolean().default(true),
     }),
   ),
   async (c) => {
@@ -700,6 +723,10 @@ adminApi.post(
           limit: input.limit,
           expiresAt: input.expires ? new Date(input.expires) : null,
           active: true,
+          productSlug: input.productSlug || null,
+          categorySlug: input.categorySlug || null,
+          minSubtotal: input.minSubtotal,
+          oncePerCustomer: input.oncePerCustomer,
         })
         .returning();
       await audit(c, { action: `created the coupon ${row.code}`, target: row.code, kind: "promo" });
@@ -712,7 +739,17 @@ adminApi.post(
 
 adminApi.patch(
   "/coupons/:code",
-  zValidator("json", z.object({ active: z.boolean().optional(), limit: z.number().int().min(1).optional() })),
+  zValidator(
+    "json",
+    z.object({
+      active: z.boolean().optional(),
+      limit: z.number().int().min(1).optional(),
+      productSlug: z.string().trim().max(120).nullable().optional(),
+      categorySlug: z.string().trim().max(120).nullable().optional(),
+      minSubtotal: z.number().int().min(0).optional(),
+      oncePerCustomer: z.boolean().optional(),
+    }),
+  ),
   async (c) => {
     const db = getDb();
     const input = c.req.valid("json");

@@ -104,7 +104,7 @@ export default function CartPage() {
               ← Continue browsing
             </Link>
             <span className="flex items-center gap-1.5 text-[0.6875rem] text-ink-3">
-              <ShieldCheck className="size-3.5 text-accent" /> Payment secured by Stripe
+              <ShieldCheck className="size-3.5 text-accent" /> Pay in USDT, USDC or BTC
             </span>
           </div>
         </div>

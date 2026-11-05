@@ -115,13 +115,27 @@ export const useCart = create<CartState>()(
   ),
 );
 
+/**
+ * The same sale maths the server uses (`server/lib/pricing.ts`): a live sale is
+ * a ratio applied to every tier, so the cart never quotes a price the checkout
+ * will not charge. The server still re-prices everything; this is display only.
+ */
+export function saleRatio(product: { price: number; salePrice?: number | null; saleEndsAt?: string | null }) {
+  if (product.salePrice == null || product.price <= 0) return 1;
+  if (product.salePrice >= product.price) return 1;
+  if (product.saleEndsAt && new Date(product.saleEndsAt).getTime() <= Date.now()) return 1;
+  return product.salePrice / product.price;
+}
+
 export function useCartTotals() {
   const { lines, coupon } = useCart();
   const items = lines.flatMap((line) => {
     const product = productBySlug(line.productSlug);
     if (!product) return [];
     const tier = product.tiers.find((t) => t.license === line.license) ?? product.tiers[0];
-    return [{ line, product, tier, price: tier?.price ?? product.price }];
+    const listPrice = tier?.price ?? product.price;
+    const ratio = saleRatio(product);
+    return [{ line, product, tier, listPrice, price: Math.round(listPrice * ratio) }];
   });
   const subtotal = items.reduce((n, i) => n + i.price, 0);
   const rate = coupon ? (COUPONS[coupon] ?? couponRate ?? 0) : 0;

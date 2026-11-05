@@ -640,7 +640,9 @@ export const activityLog = pgTable(
     actor: text("actor").notNull().default("System"),
     action: text("action").notNull(),
     target: text("target").notNull().default(""),
-    kind: text("kind", { enum: ["product", "order", "customer", "settings", "content", "promo", "auth"] })
+    kind: text("kind", {
+      enum: ["product", "order", "customer", "settings", "content", "promo", "auth", "payment", "download", "refund"],
+    })
       .notNull()
       .default("settings"),
     ip: text("ip"),

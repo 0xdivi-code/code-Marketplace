@@ -17,6 +17,7 @@ import {
   toReview,
 } from "../lib/mappers";
 import type { License } from "@/data/types";
+import { licenseTerms } from "../lib/licensing";
 
 const api = new Hono();
 
@@ -307,6 +308,17 @@ api.get("/assets/:key{.+}", async (c) => {
 /* ---------------------------------------------------------------- discovery */
 
 /** Storefront-wide counters for the marketing copy (real, not mock). */
+/**
+ * Licence terms for the storefront.
+ *
+ * Shown at checkout and on the licensing page; the brief requires the customer
+ * to be able to read what they are buying before they pay.
+ */
+api.get("/licenses/terms", async (c) => {
+  const terms = await licenseTerms();
+  return c.json({ terms });
+});
+
 api.get("/stats", async (c) => {
   const db = getDb();
   const [products, customers, downloads, reviews] = await Promise.all([

@@ -12,7 +12,9 @@
     "db:migrate": "tsx server/scripts/migrate.ts",
     "db:seed": "tsx server/scripts/seed.ts",
     "db:reset": "tsx server/scripts/reset.ts",
-    "dev:all": "concurrently -n api,web -c green,cyan \"npm:api\" \"npm:dev\""
+    "dev:all": "concurrently -n api,web -c green,cyan \"npm:api\" \"npm:dev\"",
+    "test:payments": "tsx server/scripts/test-payments.ts",
+    "typecheck:server": "tsc --noEmit -p tsconfig.server.json"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.15",

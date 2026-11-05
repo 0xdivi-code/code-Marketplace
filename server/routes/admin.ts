@@ -174,6 +174,9 @@ const productInput = z.object({
   status: z.enum(["published", "draft", "review", "archived"]).optional(),
   price: z.number().int().min(0).max(10_000_000).optional(),
   compareAt: z.number().int().min(0).max(10_000_000).nullable().optional(),
+  /** real sale price — charged while live, unlike compareAt */
+  salePrice: z.number().int().min(0).max(10_000_000).nullable().optional(),
+  saleEndsAt: z.string().nullable().optional(),
   free: z.boolean().optional(),
   featured: z.boolean().optional(),
   trending: z.boolean().optional(),
@@ -201,7 +204,7 @@ const productInput = z.object({
   tiers: z
     .array(
       z.object({
-        license: z.enum(["personal", "commercial", "extended"]),
+        license: z.enum(["personal", "commercial", "extended", "developer"]),
         name: z.string().max(60),
         price: z.number().int().min(0),
         compareAt: z.number().int().min(0).nullable().optional(),
@@ -277,6 +280,10 @@ adminApi.post("/products", zValidator("json", productInput), async (c) => {
   const existing = await db.select({ id: t.products.id }).from(t.products).where(eq(t.products.slug, slug)).limit(1);
   const finalSlug = existing.length ? `${slug}-${Math.random().toString(36).slice(2, 6)}` : slug;
 
+  if (input.salePrice != null && input.salePrice >= (input.price ?? 0)) {
+    return c.json({ error: "A sale price must be below the list price." }, 400);
+  }
+
   const { categoryId, authorId } = await resolveRefs(input);
 
   const [row] = await db
@@ -293,6 +300,8 @@ adminApi.post("/products", zValidator("json", productInput), async (c) => {
       status: input.status ?? "draft",
       price: input.price ?? 0,
       compareAt: input.compareAt ?? null,
+      salePrice: input.salePrice ?? null,
+      saleEndsAt: input.saleEndsAt ? new Date(input.saleEndsAt) : null,
       free: input.free ?? false,
       featured: input.featured ?? false,
       trending: input.trending ?? false,
@@ -391,6 +400,14 @@ adminApi.patch("/products/:slug", zValidator("json", productInput.partial()), as
   const existing = rows[0];
   if (!existing) return c.json({ error: "Product not found" }, 404);
 
+  // A sale priced above list would silently never apply; reject it instead of
+  // storing a number the storefront quietly ignores.
+  if (input.salePrice != null) {
+    const list = input.price ?? existing.price;
+    if (existing.free || list === 0) return c.json({ error: "Free products cannot be on sale." }, 400);
+    if (input.salePrice >= list) return c.json({ error: "A sale price must be below the list price." }, 400);
+  }
+
   const { categoryId, authorId } = await resolveRefs(input);
 
   const patch: Partial<typeof t.products.$inferInsert> = {
@@ -405,6 +422,10 @@ adminApi.patch("/products/:slug", zValidator("json", productInput.partial()), as
     ...(input.tags !== undefined ? { tags: input.tags } : {}),
     ...(input.price !== undefined ? { price: input.price } : {}),
     ...(input.compareAt !== undefined ? { compareAt: input.compareAt } : {}),
+    ...(input.salePrice !== undefined ? { salePrice: input.salePrice } : {}),
+    ...(input.saleEndsAt !== undefined
+      ? { saleEndsAt: input.saleEndsAt ? new Date(input.saleEndsAt) : null }
+      : {}),
     ...(input.free !== undefined ? { free: input.free } : {}),
     ...(input.featured !== undefined ? { featured: input.featured } : {}),
     ...(input.trending !== undefined ? { trending: input.trending } : {}),

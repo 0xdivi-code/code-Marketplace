@@ -195,6 +195,7 @@ export async function seed({ log = true, force = false }: { log?: boolean; force
     `);
   } else if (productCount > 0 && categoryCount > 0) {
     say("catalogue already seeded — skipping demo data");
+    await seedDeveloperTiers(log);
     await seedSourceArchives(log);
     await seedAdmin(log);
     return;
@@ -378,7 +379,7 @@ export async function seed({ log = true, force = false }: { log?: boolean; force
         passwordHash: demoPassword,
         name: c.name,
         role: "customer",
-        status: c.status === "blocked" ? "suspended" : "active",
+        status: c.status === "suspended" ? "suspended" : "active",
         emailVerifiedAt: c.status === "invited" ? null : now(),
         country: c.country,
         createdAt: new Date(c.joined),
@@ -541,9 +542,50 @@ export async function seed({ log = true, force = false }: { log?: boolean; force
   });
 
   say("content, homepage sections and settings");
+  await seedDeveloperTiers(log);
   await seedSourceArchives(log);
   await seedAdmin(log);
   if (log) console.log("Seed complete.");
+}
+
+/**
+ * Ensure every product has a developer / agency tier.
+ *
+ * Seeded products only carry personal/commercial/extended rows. Without a
+ * developer row the storefront falls back to the personal price while checkout
+ * — which scales the shelf price — charges more, and the ladder in the licence
+ * picker skips a rung. Idempotent, so it is safe on every boot and on existing
+ * catalogues.
+ *
+ * Price derives from the extended tier (1.35x, rounded to the nearest $10),
+ * which keeps the ladder sensible without hand-tuning sixteen products.
+ */
+export async function seedDeveloperTiers(log = true) {
+  const db = getDb();
+  const products = await db.select().from(t.products);
+  let created = 0;
+  for (const product of products) {
+    const tiers = await db.select().from(t.pricingTiers).where(eq(t.pricingTiers.productId, product.id));
+    if (!tiers.length || tiers.some((x) => x.license === "developer")) continue;
+    const extended = tiers.find((x) => x.license === "extended") ?? tiers.find((x) => x.license === "commercial");
+    const base = extended?.price ?? Math.round(product.price * 2);
+    const price = product.free ? 0 : Math.round((base * 1.35) / 1000) * 1000;
+    await db.insert(t.pricingTiers).values({
+      productId: product.id,
+      license: "developer",
+      name: "Developer / Agency",
+      price,
+      compareAt: null,
+      summary: "Use it across every client project your studio ships.",
+      seats: "Unlimited seats, unlimited client sites",
+      includes: ["Unlimited client projects", "Unlimited seats", "Priority support", "Client-facing certificate"],
+      popular: false,
+      position: 3,
+    });
+    created++;
+  }
+  if (created && log) console.log(`  ${created} developer tiers created`);
+  return created;
 }
 
 /**

@@ -17,6 +17,7 @@ import { sha256 } from "../lib/crypto";
 import {
   freeQuotaUsed,
   latestFile,
+  consumeDownloadToken,
   redeemDownloadToken,
   entitlement,
   logDownload,
@@ -176,15 +177,15 @@ free.get("/downloads/:token", async (c) => {
    * cookie (in-app browsers, link previewers, a fresh device).
    */
   const viewer = await currentUser(c);
-  const [tokenRow] = await db
-    .select({ userId: t.downloadTokens.userId })
-    .from(t.downloadTokens)
-    .where(eq(t.downloadTokens.tokenHash, sha256(token)))
-    .limit(1);
-  const ownerId = viewer?.id ?? tokenRow?.userId ?? null;
+  const ownerId = redeemed.userId ?? viewer?.id ?? null;
   const allowed = await entitlement({ userId: ownerId, productId: product.id });
   if (!allowed.ok) return c.json({ error: allowed.reason }, 403);
 
+  const bytes = await readStoredFile(file.storageKey);
+  if (!bytes) return c.json({ error: "That file is missing from storage." }, 410);
+
+  // Only a delivered file costs a use.
+  await consumeDownloadToken(redeemed.tokenId);
   await logDownload({
     userId: ownerId,
     productId: product.id,
@@ -193,9 +194,6 @@ free.get("/downloads/:token", async (c) => {
     ip: clientIp(c),
     userAgent: c.req.header("user-agent"),
   });
-
-  const bytes = await readStoredFile(file.storageKey);
-  if (!bytes) return c.json({ error: "That file is missing from storage." }, 410);
 
   return new Response(bytes, {
     headers: {

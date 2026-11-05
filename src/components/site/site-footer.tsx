@@ -165,7 +165,7 @@ export function SiteFooter() {
         <div className="flex flex-col items-center justify-between gap-3 border-t border-line py-6 text-[0.6875rem] text-ink-3 sm:flex-row">
           <p>© {new Date().getFullYear()} Kiln Studio, Unipessoal Lda. All code licensed per sale.</p>
           <div className="flex items-center gap-4">
-            <span>Payments secured by Stripe</span>
+            <span>Payments in USDT, USDC & BTC</span>
             <span className="hidden sm:inline">·</span>
             <Link to="/page/terms" className="hover:text-ink">
               Terms

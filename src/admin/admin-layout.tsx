@@ -26,6 +26,7 @@ import {
   Command,
   Loader2,
   Star,
+  Webhook,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/store";
@@ -63,6 +64,7 @@ const groups: { label: string; items: NavItem[] }[] = [
       { to: "/admin/orders", label: "Orders", icon: ShoppingCart, badge: "orders" },
       { to: "/admin/customers", label: "Customers", icon: Users },
       { to: "/admin/payments", label: "Payments", icon: CreditCard },
+      { to: "/admin/webhooks", label: "Webhooks", icon: Webhook },
       { to: "/admin/promotions", label: "Promotions", icon: Ticket, badge: "coupons" },
       { to: "/admin/reviews", label: "Reviews", icon: Star, badge: "pendingReviews" },
     ],
@@ -132,14 +134,53 @@ export function AdminLayout() {
   return <AdminShell counts={counts} />;
 }
 
+type Notice = { id: string; actor: string; action: string; target: string | null; at: string };
+
+/** "3m ago" — good enough for a notification list, no dependency needed. */
+function relativeTime(iso: string): string {
+  const secs = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+  if (secs < 60) return "just now";
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
 function AdminShell({ counts }: { counts: Record<string, number> }) {
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [searchOpen, setSearchOpen] = React.useState(false);
+  const [notifications, setNotifications] = React.useState<Notice[]>([]);
   const { theme, toggle } = useTheme();
   const location = useLocation();
 
   React.useEffect(() => setMobileOpen(false), [location.pathname]);
+
+  // The bell shows the real activity log, not decoration.
+  React.useEffect(() => {
+    let alive = true;
+    fetch("/api/admin/activity", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!alive || !data?.activity) return;
+        setNotifications(
+          (data.activity as { id: string; actor: string; action: string; target: string | null; createdAt: string }[])
+            .slice(0, 5)
+            .map((a) => ({
+              id: a.id,
+              actor: a.actor,
+              action: a.action,
+              target: a.target,
+              at: a.createdAt,
+            })),
+        );
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [location.pathname]);
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -352,26 +393,39 @@ function AdminShell({ counts }: { counts: Record<string, number> }) {
             <DropdownMenu.Trigger asChild>
               <button className="relative grid size-8 place-items-center rounded text-ink-2 hover:bg-surface-2 hover:text-ink" aria-label="Notifications">
                 <Bell className="size-4" />
-                <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-accent" />
+                {notifications.length > 0 && (
+                  <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-accent" />
+                )}
               </button>
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
               <DropdownMenu.Content
                 align="end"
                 sideOffset={8}
-                className="z-50 w-72 rounded-md border border-line bg-surface p-2 shadow-pop"
+                className="z-50 w-80 rounded-md border border-line bg-surface p-2 shadow-pop"
               >
-                <p className="px-2 py-1.5 text-[0.75rem] font-medium">Notifications</p>
-                {[
-                  { t: "Stripe webhook retried", s: "invoice.paid · 2m ago" },
-                  { t: "New review on Forge", s: "5 stars · 1h ago" },
-                  { t: "Low stock? No — new sale", s: "KL-10482 · 2h ago" },
-                ].map((n) => (
-                  <div key={n.t} className="rounded-sm px-2 py-1.5 hover:bg-surface-2">
-                    <p className="text-[0.75rem] text-ink">{n.t}</p>
-                    <p className="text-[0.625rem] text-ink-3">{n.s}</p>
-                  </div>
-                ))}
+                <p className="px-2 py-1.5 text-[0.75rem] font-medium">Recent activity</p>
+                {notifications.length === 0 ? (
+                  <p className="px-2 py-3 text-[0.6875rem] text-ink-3">Nothing has happened yet.</p>
+                ) : (
+                  notifications.map((n) => (
+                    <div key={n.id} className="rounded-sm px-2 py-1.5 hover:bg-surface-2">
+                      <p className="text-[0.75rem] text-ink">
+                        <span className="text-ink-3">{n.actor}</span> {n.action}
+                      </p>
+                      <p className="text-[0.625rem] text-ink-3">
+                        {n.target ? `${n.target} · ` : ""}
+                        {relativeTime(n.at)}
+                      </p>
+                    </div>
+                  ))
+                )}
+                <Link
+                  to="/admin/activity"
+                  className="mt-1 block rounded-sm px-2 py-1.5 text-[0.6875rem] text-ink-2 hover:bg-surface-2 hover:text-ink"
+                >
+                  Full activity log →
+                </Link>
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
           </DropdownMenu.Root>

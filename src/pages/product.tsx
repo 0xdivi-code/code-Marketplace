@@ -37,7 +37,8 @@ import {
 } from "@/data/catalog";
 import type { License } from "@/data/types";
 import { cn, compact, money } from "@/lib/utils";
-import { useCart, useRecent, useUi, useWishlist } from "@/lib/store";
+import { saleRatio, useCart, useRecent, useUi, useWishlist } from "@/lib/store";
+import { api, ApiError } from "@/lib/api";
 import { toast } from "sonner";
 import NotFoundPage from "./not-found";
 
@@ -50,6 +51,9 @@ export default function ProductPage() {
   const recent = useRecent();
   const [license, setLicense] = React.useState<License>("personal");
   const [imageIndex, setImageIndex] = React.useState(0);
+  // Declared above the "product is missing" early return: hooks must run in the
+  // same order on every render, and the catalogue hydrates a frame later.
+  const [grabbing, setGrabbing] = React.useState(false);
 
   React.useEffect(() => {
     if (product) {
@@ -65,7 +69,17 @@ export default function ProductPage() {
   const author = authorBySlug(product.author)!;
   const category = categoryBySlug(product.category)!;
   const reviews = reviewsFor(product.slug);
-  const tier = product.tiers.find((t) => t.license === license) ?? product.tiers[0];
+  const baseTier = product.tiers.find((t) => t.license === license) ?? product.tiers[0];
+  /**
+   * A live sale cuts every tier by the same ratio the server charges. The
+   * struck-through figure prefers the sale's own list price; `compareAt` is only
+   * an editorial "was" price and stays as a fallback.
+   */
+  const ratio = saleRatio(product);
+  const onSale = ratio < 1;
+  const tier = onSale
+    ? { ...baseTier, price: Math.round(baseTier.price * ratio), compareAt: baseTier.price }
+    : baseTier;
   const isWished = wishlist.slugs.includes(product.slug);
   const related = products
     .filter((p) => p.slug !== product.slug && (p.category === product.category || p.author === product.author))
@@ -78,6 +92,26 @@ export default function ProductPage() {
       description: `${tier.name} license · ${money(tier.price)}`,
       action: { label: "View cart", onClick: () => setCart(true) },
     });
+  };
+
+  const grabFree = async () => {
+    setGrabbing(true);
+    try {
+      const res = await api.post<{ url: string; filename: string; inLibrary: boolean }>(
+        `/free/${product.slug}/claim`,
+        {},
+      );
+      window.location.href = res.url;
+      toast.success("Downloading", {
+        description: res.inLibrary
+          ? "Saved to your library — updates included."
+          : "Create a free account to hear about new versions.",
+      });
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not start the download.");
+    } finally {
+      setGrabbing(false);
+    }
   };
 
   const gallery = product.gallery;
@@ -495,10 +529,10 @@ export default function ProductPage() {
                   ))}
                 </RadioGroup>
 
-                <Button onClick={buy} size="lg" className="mt-4 w-full">
+                <Button onClick={product.free ? () => void grabFree() : buy} size="lg" className="mt-4 w-full" disabled={product.free && grabbing}>
                   {product.free ? (
                     <>
-                      <Download className="size-4" /> Download free
+                      <Download className="size-4" /> {grabbing ? "Preparing…" : "Download free"}
                     </>
                   ) : (
                     <>

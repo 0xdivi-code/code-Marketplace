@@ -60,6 +60,8 @@ export default function AdminProductEditor() {
     stack: (existing?.stack ?? []).join(", "),
     price: ((existing?.price ?? 9900) / 100).toFixed(2),
     compareAt: existing?.compareAt ? (existing.compareAt / 100).toFixed(2) : "",
+    salePrice: existing?.salePrice ? (existing.salePrice / 100).toFixed(2) : "",
+    saleEndsAt: existing?.saleEndsAt ? new Date(existing.saleEndsAt).toISOString().slice(0, 10) : "",
     version: existing?.version ?? "1.0.0",
     status: existing?.status ?? "draft",
     featured: existing?.featured ?? false,
@@ -86,6 +88,8 @@ export default function AdminProductEditor() {
       stack: existing.stack.join(", "),
       price: (existing.price / 100).toFixed(2),
       compareAt: existing.compareAt ? (existing.compareAt / 100).toFixed(2) : "",
+      salePrice: existing.salePrice ? (existing.salePrice / 100).toFixed(2) : "",
+      saleEndsAt: existing.saleEndsAt ? new Date(existing.saleEndsAt).toISOString().slice(0, 10) : "",
       version: existing.version,
       status: existing.status,
       featured: existing.featured,
@@ -124,6 +128,10 @@ export default function AdminProductEditor() {
       status: form.status as "published" | "draft" | "review" | "archived",
       price: priceCents,
       compareAt: compareCents,
+      // A time-boxed sale is the real price the server charges, so it is not
+      // merely presentational like compareAt.
+      salePrice: form.salePrice ? Math.round(Number(form.salePrice) * 100) : null,
+      saleEndsAt: form.saleEndsAt ? new Date(`${form.saleEndsAt}T23:59:59Z`).toISOString() : null,
       free: form.free,
       featured: form.featured,
       trending: form.trending,
@@ -435,6 +443,31 @@ export default function AdminProductEditor() {
                     </div>
                   </Field>
                 </div>
+                {/* A real, time-boxed sale: the server charges this price while
+                    it is live, unlike compare-at which is presentational. */}
+                <div className="mt-4 grid gap-3 rounded-sm border border-line bg-surface-2/40 p-3 sm:grid-cols-2">
+                  <Field label="Sale price (USD)" htmlFor="sale" hint="Charged while live">
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-[0.8125rem] text-ink-3">$</span>
+                      <Input
+                        id="sale"
+                        value={form.salePrice}
+                        onChange={(e) => set("salePrice", e.target.value)}
+                        placeholder="none"
+                        className="pl-7 font-mono"
+                      />
+                    </div>
+                  </Field>
+                  <Field label="Sale ends" htmlFor="sale-end" hint="Leave blank to run until cleared">
+                    <Input
+                      id="sale-end"
+                      type="date"
+                      value={form.saleEndsAt}
+                      onChange={(e) => set("saleEndsAt", e.target.value)}
+                    />
+                  </Field>
+                </div>
+
                 <div className="mt-4 space-y-2">
                   {[
                     { name: "Commercial", mult: 2.4 },

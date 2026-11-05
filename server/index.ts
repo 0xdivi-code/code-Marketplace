@@ -17,8 +17,9 @@ import { migrate } from "./db/migrate";
 import { auth, admin as adminAuth } from "./routes/auth";
 import { api } from "./routes/storefront";
 import { account } from "./routes/account";
-import { webhooks } from "./routes/webhooks";
+import { markServing, webhooks } from "./routes/webhooks";
 import { free } from "./routes/free";
+import { adminPayments } from "./routes/admin-payments";
 import { adminApi } from "./routes/admin";
 import { adminContentApi } from "./routes/admin-content";
 import { pruneSessions } from "./lib/auth";
@@ -98,6 +99,7 @@ app.route("/api", api);
 app.route("/api/account", account);
 app.route("/api/admin", adminApi);
 app.route("/api/admin", adminContentApi);
+app.route("/api/admin", adminPayments);
 app.route("/api/webhooks", webhooks);
 app.route("/api", free);
 
@@ -116,6 +118,7 @@ async function main() {
   await migrate({ log: false });
   await pruneSessions();
 
+  markServing();
   serve({ fetch: app.fetch, port: PORT, hostname: "0.0.0.0" }, (info) => {
     console.log(`  kiln api    http://localhost:${info.port}`);
     console.log(`  uploads     zip ≤ ${Math.round(UPLOAD_LIMITS.zipBytes / 1024 / 1024)} MB · images ≤ ${Math.round(UPLOAD_LIMITS.imageBytes / 1024 / 1024)} MB`);
@@ -127,7 +130,12 @@ async function main() {
   }, 60 * 60 * 1000).unref();
 }
 
-if (!isProd || process.env.API_AUTOSTART !== "false") {
+/**
+ * Tests import this module for `app` and drive their own database, so they opt
+ * out with NODE_ENV=test or API_AUTOSTART=false.
+ */
+const autostart = !isProd && process.env.API_AUTOSTART !== "false" && process.env.NODE_ENV !== "test";
+if (autostart) {
   main().catch((err) => {
     console.error("Failed to start API", err);
     process.exit(1);

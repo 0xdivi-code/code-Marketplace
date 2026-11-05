@@ -21,6 +21,8 @@ import AccountLayout from "@/pages/account/account-layout";
 import DashboardPage from "@/pages/account/dashboard";
 import OrdersPage from "@/pages/account/orders";
 import LibraryPage from "@/pages/account/library";
+import CertificatesPage from "@/pages/account/certificates";
+import AdminWebhooks from "@/admin/webhooks";
 import WishlistPage from "@/pages/account/wishlist";
 import SettingsPage from "@/pages/account/settings";
 import AboutPage from "@/pages/about";
@@ -76,6 +78,7 @@ export default function App() {
           <Route index element={<DashboardPage />} />
           <Route path="orders" element={<OrdersPage />} />
           <Route path="library" element={<LibraryPage />} />
+          <Route path="certificates" element={<CertificatesPage />} />
           <Route path="wishlist" element={<WishlistPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
@@ -103,6 +106,7 @@ export default function App() {
         <Route path="customers" element={<AdminCustomers />} />
         <Route path="reviews" element={<AdminReviews />} />
         <Route path="payments" element={<AdminPayments />} />
+        <Route path="webhooks" element={<AdminWebhooks />} />
         <Route path="banners" element={<AdminBanners />} />
         <Route path="promotions" element={<AdminPromotions />} />
         <Route path="content" element={<AdminContent />} />

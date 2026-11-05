@@ -4,7 +4,23 @@ import * as t from "../db/schema";
 import { currentAdmin } from "./auth";
 import type { Context } from "hono";
 
-type Kind = "product" | "order" | "customer" | "settings" | "content" | "promo" | "auth";
+/**
+ * Every activity category the app writes. `payment`, `download` and `refund`
+ * were used in the routes long before they appeared here — and because
+ * `logActivity` swallows errors, those entries were being dropped silently
+ * instead of failing loudly. Keep this list in step with the schema enum.
+ */
+type Kind =
+  | "product"
+  | "order"
+  | "customer"
+  | "settings"
+  | "content"
+  | "promo"
+  | "auth"
+  | "payment"
+  | "download"
+  | "refund";
 
 export async function logActivity(input: {
   actor?: string;
@@ -12,7 +28,7 @@ export async function logActivity(input: {
   action: string;
   target?: string;
   kind?: Kind;
-  ip?: string;
+  ip?: string | null;
 }): Promise<void> {
   try {
     const db = getDb();

@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { PageHeader } from "./admin-layout";
 import { DataTable, MoneyCell, RowActions, StatusBadge, TableFooter, TableToolbar, type Column } from "./ui";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Field, Input } from "@/components/ui/field";
 import { NativeSelect } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -24,6 +26,10 @@ interface AdminOrder {
   statusRaw: "pending" | "paid" | "refunded" | "cancelled";
   total: number;
   payment: string;
+  /** raw gateway state, shown next to the order status so a pending order is legible */
+  paymentStatus?: string | null;
+  paymentMode?: string | null;
+  paymentProvider?: string | null;
   email: string;
   name: string;
   items: { productSlug: string; productName: string; license: string; unitPrice: number }[];
@@ -53,14 +59,34 @@ export default function AdminOrders() {
     void load();
   }, [load]);
 
-  const refund = async (o: AdminOrder) => {
-    if (!window.confirm(`Refund ${o.number} for ${money(o.total, { free: false })}? Their licence is revoked.`)) return;
+  /**
+   * Refund through the dedicated endpoint rather than flipping a status field:
+   * it revokes licences, reverses the payment row, records the reason and emails
+   * the customer. The admin still broadcasts the crypto refund by hand — no
+   * gateway can pull coins back — so the dialog collects the reason up front.
+   */
+  const [refundFor, setRefundFor] = React.useState<AdminOrder | null>(null);
+  const [refundReason, setRefundReason] = React.useState("");
+  const [refunding, setRefunding] = React.useState(false);
+
+  const submitRefund = async () => {
+    if (!refundFor) return;
+    setRefunding(true);
     try {
-      await api.patch(`/admin/orders/${o.number}`, { status: "refunded" });
-      toast.success(`Refunded ${o.number}`, { description: "Licence revoked and payment reversed." });
+      const res = await api.post<{ revoked: number }>(`/admin/orders/${refundFor.number}/refund`, {
+        reason: refundReason.trim() || undefined,
+        notify: true,
+      });
+      toast.success(`Refunded ${refundFor.number}`, {
+        description: `${res.revoked} licence${res.revoked === 1 ? "" : "s"} revoked · customer emailed`,
+      });
+      setRefundFor(null);
+      setRefundReason("");
       await load();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Refund failed.");
+    } finally {
+      setRefunding(false);
     }
   };
 
@@ -126,7 +152,15 @@ export default function AdminOrders() {
     {
       key: "payment",
       header: "Payment",
-      render: (o) => <span className="text-[0.6875rem] text-ink-3">{o.payment}</span>,
+      render: (o) => (
+        <div>
+          <span className="font-mono text-[0.6875rem] text-ink-2">{o.payment}</span>
+          <p className="text-[0.5625rem] text-ink-3">
+            {o.paymentStatus ?? "no payment record"}
+            {o.paymentMode ? ` · ${o.paymentMode}` : ""}
+          </p>
+        </div>
+      ),
     },
     {
       key: "status",
@@ -160,7 +194,7 @@ export default function AdminOrders() {
               label: "Refund order",
               danger: true,
               disabled: o.statusRaw === "refunded",
-              onClick: () => void refund(o),
+              onClick: () => setRefundFor(o),
             },
           ]}
         />
@@ -244,6 +278,36 @@ export default function AdminOrders() {
         }
         footer={<TableFooter shown={rows.length} total={filtered.length} page={page} pages={pages} onPage={setPage} />}
       />
+
+      {refundFor && (
+        <Dialog open onOpenChange={(v) => !v && setRefundFor(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Refund {refundFor.number}</DialogTitle>
+              <DialogDescription>
+                {money(refundFor.total, { free: false })} back to {refundFor.email}. The licences are revoked
+                immediately and downloads close; you'll need to broadcast the crypto refund yourself.
+              </DialogDescription>
+            </DialogHeader>
+            <Field label="Reason (sent to the customer)" htmlFor="refund-reason">
+              <Input
+                id="refund-reason"
+                value={refundReason}
+                onChange={(e) => setRefundReason(e.target.value)}
+                placeholder="Duplicate purchase, wrong licence, …"
+              />
+            </Field>
+            <DialogFooter>
+              <Button variant="ghost" size="sm" onClick={() => setRefundFor(null)} disabled={refunding}>
+                Cancel
+              </Button>
+              <Button variant="danger" size="sm" onClick={() => void submitRefund()} disabled={refunding}>
+                {refunding ? "Refunding…" : "Refund and revoke"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

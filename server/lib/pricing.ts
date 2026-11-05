@@ -94,9 +94,16 @@ export async function quote(input: {
      * A tier row is authoritative when present. Otherwise scale the shelf price
      * by tier, so an extended licence can never accidentally sell at the
      * personal price just because nobody configured a row.
+     *
+     * A live sale is a discount on the product, not just on its base price: the
+     * same ratio is passed through to the configured tier prices, otherwise a
+     * sale would silently do nothing for every product with tier rows.
      */
     const multiplier = raw.license === "extended" ? 2 : raw.license === "developer" ? 3 : 1;
-    const base = tier ? tier.price : overall.price * multiplier;
+    const saleRatio =
+      overall.saleApplied && product.price > 0 ? overall.price / product.price : 1;
+    const base = tier ? tier.price * saleRatio : overall.price * multiplier;
+    const list = tier ? tier.price : product.price * multiplier;
 
     priced.push({
       productId: product.id,
@@ -104,8 +111,8 @@ export async function quote(input: {
       name: product.name,
       license: raw.license,
       unitPrice: Math.max(0, Math.round(base)),
-      listPrice: overall.price,
-      saleApplied: !tier && overall.saleApplied,
+      listPrice: Math.max(0, Math.round(list)),
+      saleApplied: saleRatio < 1,
       discount: 0,
       free: product.free || base === 0,
     });
@@ -124,49 +131,43 @@ export async function quote(input: {
     const coupon = rows[0];
     const reject = (why: string) => notices.push(`${input.couponCode?.toUpperCase()}: ${why}`);
 
-    if (!coupon) reject("no such code");
-    else if (!coupon.active) reject("this code is no longer active");
-    else if (coupon.expiresAt && coupon.expiresAt < new Date()) reject("this code has expired");
-    else if (coupon.uses >= coupon.limit) reject("this code has been fully redeemed");
+    // Collect the first reason this code cannot be used and stop there: a code
+    // that was rejected must never still shave money off the total.
+    let blocked: string | null = null;
+    if (!coupon) blocked = "no such code";
+    else if (!coupon.active) blocked = "this code is no longer active";
+    else if (coupon.expiresAt && coupon.expiresAt < new Date()) blocked = "this code has expired";
+    else if (coupon.uses >= coupon.limit) blocked = "this code has been fully redeemed";
     else if (subtotal < coupon.minSubtotal)
-      reject(`spend at least $${(coupon.minSubtotal / 100).toFixed(2)} to use it`);
+      blocked = `spend at least $${(coupon.minSubtotal / 100).toFixed(2)} to use it`;
     else if (coupon.productSlug && !priced.some((l) => l.slug === coupon.productSlug))
-      reject("it only applies to a product not in your cart");
-    else if (coupon.categorySlug) {
+      blocked = "it only applies to a product not in your cart";
+
+    /** Lines this coupon is allowed to touch. */
+    let scoped = priced;
+    if (!blocked && coupon?.categorySlug) {
       const inScope = await db
         .select({ slug: t.products.slug })
         .from(t.products)
         .innerJoin(t.categories, eq(t.categories.id, t.products.categoryId))
         .where(and(inArray(t.products.slug, priced.map((l) => l.slug)), eq(t.categories.slug, coupon.categorySlug)));
-      if (!inScope.length) reject("it only applies to a category not in your cart");
-      else {
-        // Only the matching lines are discounted.
-        const eligible = priced.filter((l) => inScope.some((s) => s.slug === l.slug));
-        const eligibleTotal = eligible.reduce((n, l) => n + l.unitPrice, 0);
-        discount =
-          coupon.kind === "percent"
-            ? Math.round((eligibleTotal * coupon.value) / 100)
-            : Math.min(coupon.value, eligibleTotal);
-        applied = { code: coupon.code, kind: coupon.kind, value: coupon.value, id: coupon.id };
-      }
+      if (!inScope.length) blocked = "it only applies to a category not in your cart";
+      else scoped = priced.filter((l) => inScope.some((s) => s.slug === l.slug));
+    }
+    if (!blocked && coupon?.productSlug) {
+      scoped = priced.filter((l) => l.slug === coupon.productSlug);
     }
 
-    if (!discount && !applied && coupon && !coupon.categorySlug) {
-      const scoped = coupon.productSlug
-        ? priced.filter((l) => l.slug === coupon.productSlug)
-        : priced;
+    if (blocked) {
+      reject(blocked);
+    } else if (coupon) {
       const scopedTotal = scoped.reduce((n, l) => n + l.unitPrice, 0);
       if (scopedTotal > 0) {
         discount =
           coupon.kind === "percent"
             ? Math.round((scopedTotal * coupon.value) / 100)
             : Math.min(coupon.value, scopedTotal);
-        applied = {
-          code: coupon.code,
-          kind: coupon.kind,
-          value: coupon.value,
-          id: coupon.id,
-        };
+        applied = { code: coupon.code, kind: coupon.kind, value: coupon.value, id: coupon.id };
       }
     }
 

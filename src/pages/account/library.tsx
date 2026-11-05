@@ -11,6 +11,17 @@ import { money } from "@/lib/utils";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
 
+/** An order that exists but has not been confirmed on-chain yet. */
+interface PendingItem {
+  orderNumber: string;
+  status: string;
+  total: number;
+  createdAt: string;
+  slug: string;
+  name: string;
+  license: string;
+}
+
 interface LibraryEntry {
   slug: string;
   name: string;
@@ -33,14 +44,19 @@ export default function LibraryPage() {
   const [owned, setOwned] = React.useState<LibraryEntry[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [downloading, setDownloading] = React.useState<string | null>(null);
+  const [pending, setPending] = React.useState<PendingItem[]>([]);
 
   // Licences come from the authenticated endpoint — never from the public
   // catalogue, which knows nothing about who owns what.
   React.useEffect(() => {
     let alive = true;
     api
-      .get<{ library: LibraryEntry[] }>("/account/library")
-      .then((res) => alive && setOwned(res.library))
+      .get<{ library: LibraryEntry[]; pending?: PendingItem[] }>("/account/library")
+      .then((res) => {
+        if (!alive) return;
+        setOwned(res.library);
+        setPending(res.pending ?? []);
+      })
       .catch(() => {})
       .finally(() => alive && setLoading(false));
     return () => {
@@ -51,10 +67,15 @@ export default function LibraryPage() {
   async function download(entry: LibraryEntry) {
     setDownloading(entry.slug);
     try {
-      const res = await api.post<{ url: string; filename: string }>(`/account/download/${entry.slug}`, {});
-      // The signed URL is short lived; hand it straight to the browser.
+      const res = await api.post<{ url: string; filename: string; expiresAt: string; maxUses: number }>(
+        `/account/download/${entry.slug}`,
+        {},
+      );
+      // The token is short lived and use capped; hand it straight to the browser.
       window.location.href = res.url;
-      toast.success(`Downloading ${entry.name}`, { description: `${res.filename} · link valid 5 minutes` });
+      toast.success(`Downloading ${entry.name}`, {
+        description: `${res.filename} · link valid 15 minutes`,
+      });
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Download failed.");
     } finally {
@@ -95,6 +116,37 @@ export default function LibraryPage() {
           </NativeSelect>
         </div>
       </div>
+
+      {/* Orders in flight: visible, but explicitly not downloadable yet. */}
+      {pending.length > 0 && (
+        <div className="rounded-lg border border-line bg-surface">
+          <div className="flex items-center gap-2 border-b border-line px-4 py-3">
+            <RefreshCw className="size-3.5 text-ink-3" />
+            <p className="text-[0.8125rem] font-medium">Awaiting payment confirmation</p>
+            <Badge variant="warn" size="sm" className="ml-auto">
+              {pending.length}
+            </Badge>
+          </div>
+          <ul className="divide-y divide-line">
+            {pending.map((p) => (
+              <li key={`${p.orderNumber}-${p.slug}`} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-[0.8125rem]">{p.name}</p>
+                  <p className="text-[0.6875rem] capitalize text-ink-3">
+                    {p.license} licence · {p.orderNumber} · {money(p.total)}
+                  </p>
+                </div>
+                <Button asChild size="sm" variant="outline">
+                  <Link to={`/order/${p.orderNumber}`}>View invoice</Link>
+                </Button>
+              </li>
+            ))}
+          </ul>
+          <p className="border-t border-line px-4 py-2.5 text-[0.6875rem] text-ink-3">
+            Downloads unlock by themselves the moment the network confirms. This page updates when you reload it.
+          </p>
+        </div>
+      )}
 
       {loading ? (
         <div className="rounded-lg border border-line py-16 text-center text-sm text-ink-3">Loading your library…</div>

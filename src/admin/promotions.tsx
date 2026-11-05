@@ -18,6 +18,10 @@ export default function AdminPromotions() {
   const [value, setValue] = React.useState("20");
   const [limitInput, setLimitInput] = React.useState("500");
   const [expires, setExpires] = React.useState("");
+  const [productSlug, setProductSlug] = React.useState("");
+  const [minSubtotal, setMinSubtotal] = React.useState("0");
+  const [oncePerCustomer, setOncePerCustomer] = React.useState(true);
+  const [products, setProducts] = React.useState<{ slug: string; name: string }[]>([]);
   const [coupons, setCoupons] = React.useState<Coupon[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
@@ -35,6 +39,10 @@ export default function AdminPromotions() {
 
   React.useEffect(() => {
     void load();
+    api
+      .get<{ products: { slug: string; name: string }[] }>("/admin/products")
+      .then((r) => setProducts(r.products.map((p) => ({ slug: p.slug, name: p.name }))))
+      .catch(() => {});
   }, [load]);
 
   async function create() {
@@ -43,18 +51,27 @@ export default function AdminPromotions() {
     const amount = Number(value);
     if (!Number.isFinite(amount) || amount <= 0) return toast.error("Enter a discount amount.");
     if (kind === "percent" && amount > 100) return toast.error("A percentage cannot exceed 100.");
+    if (kind === "fixed" && amount > 100_000) return toast.error("That discount is too large.");
     setBusy(true);
     try {
       await api.post("/admin/coupons", {
         code: trimmed,
         kind,
+        // The API takes dollars for a fixed discount and stores cents itself, so
+        // both kinds are sent as the number the operator typed.
         value: Math.round(amount),
         limit: Number(limitInput) || 500,
         expires: expires || undefined,
+        productSlug: productSlug || undefined,
+        minSubtotal: Math.round((Number(minSubtotal) || 0) * 100),
+        oncePerCustomer,
       });
       toast.success(`${trimmed} is live`, { description: "It can be redeemed at checkout right now." });
       setOpen(false);
       setCode("");
+      setProductSlug("");
+      setMinSubtotal("0");
+      setOncePerCustomer(true);
       await load();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Could not create that coupon.");
@@ -122,6 +139,21 @@ export default function AdminPromotions() {
         </span>
       ),
       sortValue: (c) => c.value,
+    },
+    {
+      key: "scope",
+      header: "Scope",
+      render: (c) => (
+        <div className="text-[0.6875rem] text-ink-2">
+          <p className="truncate">
+            {c.productSlug ? c.productSlug : c.categorySlug ? `category: ${c.categorySlug}` : "Whole cart"}
+          </p>
+          <p className="text-[0.5625rem] text-ink-3">
+            {(c.minSubtotal ?? 0) > 0 ? `min ${money(c.minSubtotal!)}` : "no minimum"}
+            {c.oncePerCustomer ? " · once per customer" : ""}
+          </p>
+        </div>
+      ),
     },
     {
       key: "uses",
@@ -308,7 +340,7 @@ export default function AdminPromotions() {
                   <option value="fixed">Fixed amount</option>
                 </NativeSelect>
               </Field>
-              <Field label={kind === "percent" ? "Percent off" : "Amount off (cents)"} htmlFor="val">
+              <Field label={kind === "percent" ? "Percent off" : "Amount off (USD)"} htmlFor="val">
                 <Input id="val" value={value} onChange={(e) => setValue(e.target.value)} className="font-mono" />
               </Field>
             </div>
@@ -325,6 +357,44 @@ export default function AdminPromotions() {
                 <Input id="exp" type="date" value={expires} onChange={(e) => setExpires(e.target.value)} />
               </Field>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field
+                label="Limit to product"
+                htmlFor="cproduct"
+                hint="Blank applies to the whole cart"
+              >
+                <NativeSelect
+                  id="cproduct"
+                  className="h-11 text-sm"
+                  value={productSlug}
+                  onChange={(e) => setProductSlug(e.target.value)}
+                >
+                  <option value="">Any product</option>
+                  {products.map((p) => (
+                    <option key={p.slug} value={p.slug}>
+                      {p.name}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
+              <Field label="Minimum spend ($)" htmlFor="cmin">
+                <Input
+                  id="cmin"
+                  value={minSubtotal}
+                  onChange={(e) => setMinSubtotal(e.target.value)}
+                  className="font-mono"
+                />
+              </Field>
+            </div>
+            <label className="flex cursor-pointer items-center gap-2 text-[0.75rem] text-ink-2">
+              <input
+                type="checkbox"
+                checked={oncePerCustomer}
+                onChange={(e) => setOncePerCustomer(e.target.checked)}
+                className="size-3.5 accent-[#17392b]"
+              />
+              One redemption per customer
+            </label>
           </div>
           <DialogFooter>
             <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>

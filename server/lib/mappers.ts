@@ -10,7 +10,7 @@ import type {
   Category as CategoryRow,
   Author as AuthorRow,
   Review as ReviewRow,
-  Collection as CollectionRow,
+  CollectionRow,
   OrderRow,
   OrderItemRow,
   User as UserRow,
@@ -115,6 +115,8 @@ export function toProduct(p: ProductRow, extras: ProductExtras): Product {
     status: p.status,
     price: p.price,
     compareAt: p.compareAt ?? undefined,
+    salePrice: p.salePrice ?? undefined,
+    saleEndsAt: p.saleEndsAt ? new Date(p.saleEndsAt).toISOString() : undefined,
     rating: rating(p.rating),
     reviews: p.reviews,
     sales: p.sales,
@@ -205,9 +207,10 @@ export function toOrder(o: OrderRow, items: OrderItemRow[]): Order {
       license: i.license,
       price: i.unitPrice,
     })),
-    payment: `${o.payments?.[0]?.provider ?? "Stripe"} •••• ${
-      o.payments?.[0]?.reference?.slice(-4) ?? "4242"
-    }`,
+    // Never invent a gateway: an order with no payment row says so.
+    payment: o.payments?.[0]
+      ? `${o.payments[0].provider} •••• ${(o.payments[0].reference ?? "").slice(-4) || "----"}`
+      : "—",
   };
 }
 
@@ -232,7 +235,9 @@ export function toCustomer(
       u.createdAt instanceof Date
         ? u.createdAt.toISOString().slice(0, 10)
         : String(u.createdAt).slice(0, 10),
-    status: u.status === "suspended" ? "blocked" : u.emailVerifiedAt ? "active" : "invited",
+    // The DB enum, the admin UI and this payload all say "suspended". A mapper
+    // that renamed it "blocked" would render as an unknown badge in the UI.
+    status: u.status === "suspended" ? "suspended" : u.emailVerifiedAt ? "active" : "invited",
     country: u.country ?? "—",
   };
 }
@@ -249,6 +254,11 @@ export function toCoupon(c: CouponRow): Coupon {
       ? new Date(c.expiresAt).toISOString().slice(0, 10)
       : "2099-12-31",
     status: !c.active ? "expired" : expired ? "expired" : c.uses >= c.limit ? "expired" : "active",
+    // Scope fields; blank means the whole cart.
+    productSlug: c.productSlug ?? null,
+    categorySlug: c.categorySlug ?? null,
+    minSubtotal: c.minSubtotal ?? 0,
+    oncePerCustomer: c.oncePerCustomer ?? true,
   };
 }
 

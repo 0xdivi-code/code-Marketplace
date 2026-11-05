@@ -20,11 +20,19 @@ import {
   entitlement,
   latestFile,
   mintDownloadToken,
+  consumeDownloadToken,
   redeemDownloadToken,
   logDownload,
   downloadHistory,
 } from "../lib/delivery";
-import { getProvider, providerConfig, payOption } from "../lib/payments";
+import {
+  formatPayAmount,
+  getProvider,
+  invoiceUrlFor,
+  payOption,
+  providerConfig,
+  tickerFor,
+} from "../lib/payments";
 import { UPLOAD_LIMITS, get as readStoredFile } from "../lib/storage";
 import { toOrder } from "../lib/mappers";
 import { logActivity } from "../lib/activity";
@@ -95,9 +103,23 @@ account.get("/orders", async (c) => {
         .where(sql`${t.orderItems.orderId} in ${sql.raw(`(${rows.map((r) => `'${r.id}'`).join(",")})`)}`)
     : [];
 
+  const pays = rows.length
+    ? await db
+        .select({
+          orderId: t.payments.orderId,
+          provider: t.payments.provider,
+          reference: t.payments.reference,
+        })
+        .from(t.payments)
+        .where(sql`${t.payments.orderId} in ${sql.raw(`(${rows.map((r) => `'${r.id}'`).join(",")})`)}`)
+    : [];
+
   return c.json({
     orders: rows.map((o) =>
-      toOrder({ ...o, payments: [] }, items.filter((i) => i.orderId === o.id)),
+      toOrder(
+        { ...o, payments: pays.filter((p) => p.orderId === o.id) },
+        items.filter((i) => i.orderId === o.id),
+      ),
     ),
     detail: rows.map((o) => ({
       number: o.number,
@@ -304,11 +326,14 @@ account.post(
           payment: session
             ? {
                 payCurrency: session.payCurrency,
-                payAmount: session.payAmount,
+                payAmount: formatPayAmount(session.payAmount, session.payCurrency),
                 payAddress: session.payAddress,
-                invoiceUrl: session.invoiceUrl,
+                invoiceUrl: invoiceUrlFor(session),
+                network: session.network,
+                ticker: tickerFor(session.payCurrency),
                 expiresAt: session.expiresAt,
                 status: session.status,
+                sandbox: session.provider === "sandbox",
               }
             : null,
         });
@@ -497,7 +522,7 @@ account.post(
           payCurrency: created.payCurrency,
           ticker: pay.ticker,
           network: created.network ?? pay.network,
-          payAmount: created.payAmount,
+          payAmount: formatPayAmount(created.payAmount, created.payCurrency),
           payAddress: created.payAddress,
           invoiceUrl: created.invoiceUrl,
           expiresAt,
@@ -589,13 +614,17 @@ account.get("/orders/:number/payment", async (c) => {
     order: { number: fresh.number, status: fresh.status, total: fresh.total, paidAt: fresh.paidAt },
     payment: session
       ? {
-          status: session.status,
+          status: fresh.status === "paid" ? "paid" : session.status,
           payCurrency: session.payCurrency,
-          payAmount: session.payAmount,
+          // The stored amount is full-precision (119.0000000000); the invoice UI
+          // wants a human figure with a stable number of decimals.
+          payAmount: formatPayAmount(session.payAmount, session.payCurrency),
           payAddress: session.payAddress,
-          invoiceUrl: session.invoiceUrl,
+          invoiceUrl: invoiceUrlFor(session),
           network: session.network,
+          ticker: tickerFor(session.payCurrency),
           expiresAt: session.expiresAt,
+          expired: session.expiresAt ? new Date(session.expiresAt).getTime() < Date.now() : false,
           sandbox: session.provider === "sandbox",
         }
       : null,
@@ -640,6 +669,25 @@ account.get("/library", async (c) => {
     .orderBy(desc(t.downloads.createdAt))
     .limit(50);
 
+  /**
+   * Orders awaiting payment, so the library can show "unlocks once confirmed"
+   * rather than silently omitting something the customer just bought.
+   */
+  const pendingOrders = await db
+    .select({
+      number: t.orders.number,
+      status: t.orders.status,
+      total: t.orders.total,
+      createdAt: t.orders.createdAt,
+      slug: t.orderItems.productSlug,
+      name: t.orderItems.productName,
+      license: t.orderItems.license,
+    })
+    .from(t.orders)
+    .innerJoin(t.orderItems, eq(t.orderItems.orderId, t.orders.id))
+    .where(and(eq(t.orders.userId, user.id), eq(t.orders.status, "pending")))
+    .orderBy(desc(t.orders.createdAt));
+
   return c.json({
     library: rows.map(({ license, product }) => ({
       slug: product.slug,
@@ -659,6 +707,15 @@ account.get("/library", async (c) => {
       },
       hasFile: files.some((f) => f.productId === product.id && f.kind === "source_zip"),
       sizeBytes: files.find((f) => f.productId === product.id && f.kind === "source_zip")?.bytes ?? 0,
+    })),
+    pending: pendingOrders.map((p) => ({
+      orderNumber: p.number,
+      status: p.status,
+      total: p.total,
+      createdAt: p.createdAt,
+      slug: p.slug,
+      name: p.name,
+      license: p.license,
     })),
     downloads: downloads.map((d) => ({
       id: d.id,
@@ -739,24 +796,37 @@ account.get("/downloads/:token", async (c) => {
   if (!redeemed.ok) return c.json({ error: redeemed.reason }, 403);
 
   const { file, product } = redeemed;
-  // Re-check entitlement: a refund between mint and redemption must win.
+  /**
+   * Re-check entitlement: a refund between mint and redemption must win.
+   *
+   * The check runs against the account the link was minted for, not against the
+   * request's cookie. A download token is itself the credential — short-lived,
+   * use-limited, stored hashed — so a link must work in a fresh browser, a
+   * download manager or curl. Requiring the session too would both defeat that
+   * and burn one of the token's uses before failing.
+   */
   const viewer = await requireUser(c);
-  const allowed = await entitlement({ userId: viewer?.id ?? null, productId: product.id });
+  const allowed = await entitlement({
+    userId: redeemed.userId ?? viewer?.id ?? null,
+    productId: product.id,
+  });
   if (!allowed.ok) {
     return c.json({ error: allowed.reason }, 403);
   }
 
+  const bytes = await readStoredFile(file.storageKey);
+  if (!bytes) return c.json({ error: "That file is missing from storage." }, 410);
+
+  // Only a delivered file costs a use.
+  await consumeDownloadToken(redeemed.tokenId);
   await logDownload({
-    userId: viewer?.id ?? null,
+    userId: redeemed.userId ?? viewer?.id ?? null,
     productId: product.id,
     fileId: file.id,
     version: product.version,
     ip: clientIp(c),
     userAgent: c.req.header("user-agent"),
   });
-
-  const bytes = await readStoredFile(file.storageKey);
-  if (!bytes) return c.json({ error: "That file is missing from storage." }, 410);
 
   return new Response(bytes, {
     headers: {
