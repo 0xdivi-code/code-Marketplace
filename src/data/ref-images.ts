@@ -10,6 +10,8 @@
  * generated gradient whenever a file is missing or fails to load.
  */
 
+import { artworkSrc } from "@/data/artwork";
+
 export type RefKind = "product" | "category" | "promo" | "blog" | "avatar" | "spot";
 
 export interface RefImage {
@@ -99,8 +101,17 @@ export const ref = (file: string) => `/img/ref/${file}.webp`;
 
 const byFile = new Map(REF_IMAGES.map((i) => [i.file, i]));
 
-/** Resolve a key to its local path, or undefined so callers can fall back. */
-export const refSrc = (file: string): string | undefined =>
-  byFile.has(file) ? ref(file) : undefined;
+/**
+ * Resolve a key to a usable image path, or undefined so callers can fall back.
+ *
+ * Order: original artwork first, then the reference capture. Doing the swap
+ * here rather than at each call site means every consumer — cards, galleries,
+ * the search dialog, the mosaic — picks up new artwork automatically.
+ */
+export const refSrc = (file: string): string | undefined => {
+  const own = artworkSrc(file);
+  if (own) return own;
+  return byFile.has(file) ? ref(file) : undefined;
+};
 
 export const refByKind = (kind: RefKind) => REF_IMAGES.filter((i) => i.kind === kind);
