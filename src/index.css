@@ -34,68 +34,109 @@
   --tk-shadow-pop: 0 2px 4px rgba(31, 26, 18, 0.05), 0 24px 60px -24px rgba(31, 26, 18, 0.28);
 
   /*
-   * StoreKitt token names.
+   * StoreKitt token names, with Kiln's light values.
    *
-   * The reference markup and the reference stylesheet both speak this dialect
-   * (--tk-canvas, --tk-fg-muted, --tk-section-space), so the sections copied
-   * from it can be pasted in almost verbatim and still resolve. Rather than
-   * run a second, parallel palette, each name points at the Kiln token that
-   * already carries that job — one source of truth, two vocabularies.
+   * Declared as literals in both themes so the two blocks are structurally
+   * identical: every --tk-* name resolves to a colour in :root and is
+   * re-declared in .dark, with no alias chain that could resolve back to
+   * itself. (A `--tk-canvas: var(--paper)` here plus `--paper: var(--tk-canvas)`
+   * in .dark is a cycle, and cycles silently invalidate the custom property.)
+   *
+   * The Kiln names below then point at these, so the older utilities and the
+   * pasted reference classes read from one palette.
    */
-  --tk-canvas: var(--paper);
-  --tk-surface: var(--surface);
-  --tk-surface-raised: var(--surface);
-  --tk-surface-sunken: var(--surface-2);
-  --tk-surface-inverse: var(--brand);
-  --tk-fg: var(--ink);
-  --tk-fg-muted: var(--ink-2);
-  --tk-fg-subtle: var(--ink-3);
-  --tk-fg-inverse: var(--brand-ink);
-  --tk-line: var(--line);
-  --tk-line-strong: var(--line-strong);
-  --tk-primary: var(--brand);
-  --tk-primary-fg: var(--brand-ink);
-  --tk-primary-hover: color-mix(in oklab, var(--brand) 88%, #ffffff);
-  --tk-primary-active: color-mix(in oklab, var(--brand) 78%, #000000);
-  --tk-accent: var(--accent);
+  --tk-canvas: #fbf7f0;
+  --tk-surface: #ffffff;
+  --tk-surface-raised: #ffffff;
+  --tk-surface-sunken: #f4ede1;
+  --tk-surface-inverse: #17392b;
+  --tk-fg: #191814;
+  --tk-fg-muted: #57524a;
+  --tk-fg-subtle: #8a8377;
+  --tk-fg-inverse: #f7f3ea;
+  --tk-line: #e3d9c9;
+  --tk-line-strong: #d3c6b1;
+  --tk-primary: #17392b;
+  --tk-primary-fg: #f7f3ea;
+  --tk-primary-hover: color-mix(in oklab, #17392b 88%, #ffffff);
+  --tk-primary-active: color-mix(in oklab, #17392b 78%, #000000);
+  --tk-accent: #c0592b;
   --tk-accent-fg: #ffffff;
   --tk-section-space: clamp(4rem, 7vw, 6.5rem);
 
   --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
 }
 
-.dark {
-  --paper: #12100d;
-  --surface: #1a1713;
-  --surface-2: #211d18;
-  --surface-3: #2a251e;
-  --ink: #f5efe4;
-  --ink-2: #b6ada0;
-  --ink-3: #857c6f;
-  --line: #302a23;
-  --line-strong: #443b30;
+/*
+ * Dark mode — StoreKitt's dark tokens, verbatim.
+ *
+ * These are the exact values from the reference stylesheet, applied as given.
+ * The `--tk-*` names are declared first because everything else reads from
+ * them: the `--color-*` entries in @theme inline point at these, so every
+ * Tailwind utility (bg-canvas, text-fg-muted, border-line, bg-primary …) and
+ * every pasted reference class resolves from this one block.
+ *
+ * The Kiln aliases below it then re-point at the tk values, so the few places
+ * that still read --paper / --surface / --ink directly follow the same theme
+ * instead of drifting.
+ *
+ * Both `.dark` and `[data-mode="dark"]` are matched: the app toggles the class,
+ * the reference's own selector keyed off the data attribute.
+ */
+.dark,
+:root[data-mode="dark"] {
+  --tk-canvas: #0f1a17;
+  --tk-surface: #16231f;
+  --tk-surface-raised: #16231f;
+  --tk-surface-sunken: color-mix(in oklab, #0f1a17 94%, #f3f1ec);
+  --tk-surface-inverse: #f3f1ec;
+  --tk-fg: #f3f1ec;
+  --tk-fg-muted: #a7b0ab;
+  --tk-fg-subtle: color-mix(in oklab, #a7b0ab 70%, #0f1a17);
+  --tk-fg-inverse: #0f1a17;
+  --tk-line: #26352f;
+  --tk-line-strong: color-mix(in oklab, #26352f 82%, #f3f1ec);
+  --tk-primary: #f3f1ec;
+  --tk-primary-fg: #0f1a17;
+  --tk-accent: #d9a063;
+  --tk-accent-fg: #ffffff;
 
+  /* hover / active are only ever *derived* shades of the supplied fill */
+  --tk-primary-hover: color-mix(in oklab, #f3f1ec 88%, #0f1a17);
+  --tk-primary-active: color-mix(in oklab, #f3f1ec 80%, #0f1a17);
+
+  /* Kiln aliases, following the tk tokens rather than a separate palette */
+  --paper: var(--tk-canvas);
+  --surface: var(--tk-surface);
+  --surface-2: var(--tk-surface-sunken);
+  /* no surface-3 in the supplied set — derived one step above sunken */
+  --surface-3: color-mix(in oklab, var(--tk-surface-sunken) 88%, #f3f1ec);
+  --ink: var(--tk-fg);
+  --ink-2: var(--tk-fg-muted);
+  --ink-3: var(--tk-fg-subtle);
+  --line: var(--tk-line);
+  --line-strong: var(--tk-line-strong);
+
+  /*
+   * The brand scheme is deliberately NOT themed here. Your dark set covers
+   * [data-scheme="default"] and [data-scheme="soft"] and says nothing about
+   * [data-scheme="brand"], so that surface keeps its colour in both modes —
+   * which is exactly why the closing band stays deep green at night.
+   */
   --brand: #17402f;
   --brand-ink: #f4f8f1;
-  --brand-soft: #1c2a22;
-  --accent: #e08350;
-  --accent-soft: #2e1d13;
-  --accent-ink: #f3b58e;
+  --brand-soft: color-mix(in oklab, var(--tk-surface) 80%, #f3f1ec);
+  --accent: var(--tk-accent);
+  --accent-ink: var(--tk-accent);
+  --accent-soft: color-mix(in oklab, #d9a063 18%, #0f1a17);
 
-  --sage: #2a3a2e;
-  --gold: #d8ab54;
+  --sage: color-mix(in oklab, #26352f 60%, #0f1a17);
+  --gold: var(--tk-accent);
 
   --tk-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 40px -20px rgba(0, 0, 0, 0.7);
   --tk-shadow-pop: 0 2px 6px rgba(0, 0, 0, 0.5), 0 28px 70px -28px rgba(0, 0, 0, 0.9);
-
-  /* In light-on-dark mode the "primary" action inverts, the way the reference
-     does it: near-white fill, dark label. Deep green on a dark page vanishes. */
-  --tk-surface-inverse: var(--ink);
-  --tk-primary: var(--ink);
-  --tk-primary-fg: var(--paper);
-  --tk-primary-hover: color-mix(in oklab, var(--ink) 88%, #ffffff);
-  --tk-primary-active: color-mix(in oklab, var(--ink) 80%, #000000);
 }
+
 
 @theme inline {
   --color-paper: var(--paper);
