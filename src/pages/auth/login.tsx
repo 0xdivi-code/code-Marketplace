@@ -1,22 +1,20 @@
 import * as React from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, ArrowRight, Code2 } from "lucide-react";
+import { Eye, EyeOff, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Checkbox } from "@/components/ui/field";
 import { AuthShell } from "./auth-shell";
-import { useSession } from "@/lib/store";
 import { toast } from "sonner";
+import { authApi, ApiError } from "@/lib/api";
+import { useAuth } from "@/lib/use-auth";
 
-const demo = [
-  { label: "Customer", email: "buyer@kiln.dev", note: "library, orders, wishlist" },
-  { label: "Admin", email: "admin@kiln.dev", note: "full console access" },
-];
+const demo = [{ label: "Customer", email: "marcus@brightlane.io", note: "library, orders, wishlist" }];
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { signIn } = useSession();
-  const [email, setEmail] = React.useState("buyer@kiln.dev");
-  const [password, setPassword] = React.useState("demo1234");
+  const auth = useAuth();
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
   const [show, setShow] = React.useState(false);
   const [remember, setRemember] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -25,17 +23,20 @@ export default function LoginPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!email.includes("@") || password.length < 6) {
-      setError("Use a valid email and at least 6 characters.");
+    if (!email.includes("@") || password.length < 1) {
+      setError("Use a valid email and your password.");
       return;
     }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 700));
-    const role = email.includes("admin") ? "admin" : "customer";
-    signIn(email, role);
-    setLoading(false);
-    toast.success("Welcome back");
-    navigate(role === "admin" ? "/admin" : "/account");
+    try {
+      const user = await authApi.login(email.trim(), password);
+      toast.success(`Welcome back, ${user.name.split(" ")[0]}`);
+      navigate("/account");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not reach the server.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -128,20 +129,18 @@ export default function LoginPage() {
           )}
         </Button>
 
-        <div className="relative py-1 text-center">
-          <span className="absolute inset-x-0 top-1/2 h-px bg-line" />
-          <span className="relative bg-paper px-3 text-[0.625rem] uppercase tracking-wider text-ink-3">
-            or continue with
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <Button type="button" variant="outline" onClick={() => { signIn("buyer@kiln.dev", "customer"); navigate("/account"); }}>
-            <Code2 className="size-4" /> GitHub
-          </Button>
-          <Button type="button" variant="outline" onClick={() => { signIn("buyer@kiln.dev", "customer"); navigate("/account"); }}>
-            <span className="font-semibold text-[0.8125rem]">G</span> Google
-          </Button>
+        <div className="rounded-sm border border-line bg-surface-2 px-3 py-2.5">
+          <p className="text-[0.625rem] uppercase tracking-[0.16em] text-ink-3">Demo customer</p>
+          <button
+            type="button"
+            onClick={() => {
+              setEmail("marcus@brightlane.io");
+              setPassword("demo1234");
+            }}
+            className="mt-1 text-left text-[0.75rem] text-ink-2 underline decoration-line-strong underline-offset-2 hover:text-ink"
+          >
+            marcus@brightlane.io / demo1234
+          </button>
         </div>
       </form>
     </AuthShell>

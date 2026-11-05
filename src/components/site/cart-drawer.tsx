@@ -5,7 +5,7 @@ import { X, Plus, Minus, Trash2, Tag, ShieldCheck, ArrowRight, ShoppingBag } fro
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ProductArt } from "@/components/ui/product-art";
-import { useCart, useCartTotals, useUi } from "@/lib/store";
+import { useCart, useCartTotals, useUi, validateCoupon } from "@/lib/store";
 import { money, cn } from "@/lib/utils";
 import { NativeSelect } from "@/components/ui/field";
 import { FREE_SHIPPING_THRESHOLD } from "@/lib/constants";
@@ -123,9 +123,14 @@ export function CartDrawer() {
 
             <footer className="border-t border-line px-5 py-4">
               <form
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
                   if (!code.trim()) return;
+                  const result = await validateCoupon(code, subtotal);
+                  if (!result.ok) {
+                    setError(result.error ?? "That code isn’t valid on this store.");
+                    return;
+                  }
                   const ok = applyCoupon(code);
                   setError(ok ? null : "That code isn’t valid on this store.");
                   if (ok) setCode("");

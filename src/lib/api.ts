@@ -7,9 +7,12 @@
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  /** The parsed JSON error body, so callers can branch on `code`. */
+  data: Record<string, unknown>;
+  constructor(message: string, status: number, data: Record<string, unknown> = {}) {
     super(message);
     this.status = status;
+    this.data = data;
     this.name = "ApiError";
   }
 }
@@ -27,11 +30,15 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const type = res.headers.get("content-type") ?? "";
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
+    let data: Record<string, unknown> = {};
     if (type.includes("application/json")) {
-      const body = (await res.json().catch(() => null)) as { error?: string } | null;
-      if (body?.error) message = body.error;
+      const body = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+      if (body) {
+        data = body;
+        if (typeof body.error === "string") message = body.error;
+      }
     }
-    throw new ApiError(message, res.status);
+    throw new ApiError(message, res.status, data);
   }
 
   if (type.includes("application/json")) return (await res.json()) as T;

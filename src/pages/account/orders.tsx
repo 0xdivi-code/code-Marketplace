@@ -4,7 +4,8 @@ import { Download, Receipt, RotateCcw, FileText, ChevronDown } from "lucide-reac
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/field";
-import { orders, productBySlug } from "@/data/catalog";
+import type { Order } from "@/data/types";
+import { api } from "@/lib/api";
 import { money } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
@@ -17,7 +18,26 @@ const statusTone = {
 
 export default function OrdersPage() {
   const [filter, setFilter] = React.useState("all");
-  const [open, setOpen] = React.useState<string | null>(orders[0]?.id ?? null);
+  const [open, setOpen] = React.useState<string | null>(null);
+  const [orders, setOrders] = React.useState<Order[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  // Only this customer's orders — the public catalogue has no idea who bought what.
+  React.useEffect(() => {
+    let alive = true;
+    api
+      .get<{ orders: Order[] }>("/account/orders")
+      .then((res) => {
+        if (!alive) return;
+        setOrders(res.orders);
+        setOpen(res.orders[0]?.id ?? null);
+      })
+      .catch(() => {})
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const list = orders.filter((o) => (filter === "all" ? true : o.status === filter));
 
@@ -37,10 +57,15 @@ export default function OrdersPage() {
         </NativeSelect>
       </div>
 
-      {list.length === 0 ? (
+      {loading ? (
+        <div className="rounded-lg border border-line py-16 text-center text-sm text-ink-3">Loading your orders…</div>
+      ) : list.length === 0 ? (
         <div className="rounded-lg border border-dashed border-line-strong py-16 text-center">
           <Receipt className="mx-auto size-5 text-ink-3" />
-          <p className="mt-2 font-display text-lg">No orders in this view</p>
+          <p className="mt-2 font-display text-lg">{orders.length ? "No orders in this view" : "No orders yet"}</p>
+          <p className="mt-1 text-sm text-ink-2">
+            {orders.length ? "Try a different filter." : "Your receipts appear here the moment you buy."}
+          </p>
         </div>
       ) : (
         <div className="space-y-2.5">
@@ -87,8 +112,8 @@ export default function OrdersPage() {
                     >
                       <ul className="divide-y divide-line">
                         {o.items.map((it) => {
-                          const p = productBySlug(it.productSlug);
-                          if (!p) return null;
+                          const p = { slug: it.productSlug, name: it.productSlug };
+                          if (!p.slug) return null;
                           return (
                             <li key={it.productSlug} className="flex items-center gap-3 px-4 py-3">
                               <div className="min-w-0 flex-1">
@@ -98,14 +123,14 @@ export default function OrdersPage() {
                                 >
                                   {p.name}
                                 </Link>
-                                <p className="text-[0.625rem] text-ink-3">
-                                  {it.license} license · v{p.version}
-                                </p>
+                                <p className="text-[0.625rem] text-ink-3">{it.license} license</p>
                               </div>
                               <span className="font-mono text-[0.75rem] text-ink-2">{money(it.price)}</span>
                               {o.status === "completed" && (
-                                <Button size="sm" variant="soft">
-                                  <Download className="size-3.5" />
+                                <Button size="sm" variant="soft" asChild>
+                                  <Link to="/account/library" aria-label={`Download ${p.name}`}>
+                                    <Download className="size-3.5" />
+                                  </Link>
                                 </Button>
                               )}
                             </li>

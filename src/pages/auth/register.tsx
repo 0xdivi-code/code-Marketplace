@@ -4,14 +4,15 @@ import { ArrowRight, Check, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Checkbox } from "@/components/ui/field";
 import { AuthShell } from "./auth-shell";
-import { useSession } from "@/lib/store";
+import { authApi, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const { signIn } = useSession();
   const [form, setForm] = React.useState({ name: "", email: "", password: "" });
+  const [error, setError] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState(false);
   const [show, setShow] = React.useState(false);
   const [terms, setTerms] = React.useState(false);
   const [created, setCreated] = React.useState(false);
@@ -28,12 +29,30 @@ export default function RegisterPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!terms) return;
-    await new Promise((r) => setTimeout(r, 600));
-    signIn(form.email || "new@kiln.dev", "customer");
-    setCreated(true);
-    toast.success("Account created", { description: "Welcome to Kiln." });
-    setTimeout(() => navigate("/account"), 900);
+    setError(null);
+    if (!terms) {
+      setError("Please accept the licence terms to continue.");
+      return;
+    }
+    if (form.password.length < 10) {
+      setError("Use at least 10 characters for your password.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await authApi.register({
+        name: form.name.trim(),
+        email: form.email.trim(),
+        password: form.password,
+      });
+      setCreated(true);
+      toast.success("Account created", { description: "Welcome to Kiln." });
+      setTimeout(() => navigate("/account"), 900);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not reach the server.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (

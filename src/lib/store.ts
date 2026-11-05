@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { CartLine, License } from "@/data/types";
 import { productBySlug } from "@/data/catalog";
+import { authApi, type SessionUser } from "./api";
+import { useAuth } from "./use-auth";
 
 /* ------------------------------------------------------------------ theme */
 type Theme = "light" | "dark";
@@ -51,7 +53,34 @@ interface CartState {
   removeCoupon: () => void;
 }
 
-export const COUPONS: Record<string, number> = { LAUNCH25: 0.25, WELCOME10: 0.1, BLACKFRIDAY: 0.4 };
+/**
+ * Coupon cache.
+ *
+ * Codes live in the database and are validated server-side at checkout. The
+ * store keeps the validated rate only so the cart can show the discount before
+ * the order is placed — the authoritative figure always comes back from the API.
+ */
+export const COUPONS: Record<string, number> = {};
+let couponRate = 0;
+
+export async function validateCoupon(code: string, subtotal: number): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch("/api/coupons/validate", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, subtotal }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.error ?? "That code is not valid." };
+    const rate = subtotal > 0 ? data.discount / subtotal : 0;
+    COUPONS[code.trim().toUpperCase()] = rate;
+    couponRate = rate;
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Could not check that code." };
+  }
+}
 
 export const useCart = create<CartState>()(
   persist(
@@ -95,8 +124,10 @@ export function useCartTotals() {
     return [{ line, product, tier, price: tier?.price ?? product.price }];
   });
   const subtotal = items.reduce((n, i) => n + i.price, 0);
-  const discount = coupon ? Math.round(subtotal * (COUPONS[coupon] ?? 0)) : 0;
-  const tax = Math.round((subtotal - discount) * 0.075);
+  const rate = coupon ? (COUPONS[coupon] ?? couponRate ?? 0) : 0;
+  const discount = Math.round(subtotal * rate);
+  // Digital goods: no sales tax is collected by this store.
+  const tax = 0;
   const total = Math.max(0, subtotal - discount + tax);
   return { items, subtotal, discount, tax, total, coupon, count: items.length };
 }
@@ -125,32 +156,42 @@ export const useWishlist = create<WishlistState>()(
 
 /* ------------------------------------------------------------------ session */
 export type Role = "customer" | "admin";
-interface SessionState {
-  user: { name: string; email: string; initials: string; role: Role } | null;
-  signIn: (email: string, role?: Role) => void;
-  signOut: () => void;
-}
-export const useSession = create<SessionState>()(
-  persist(
-    (set) => ({
-      user: { name: "Amara Okafor", email: "amara@okafor.design", initials: "AO", role: "customer" },
-      signIn: (email, role = "customer") => {
-        const name = email.includes("admin")
-          ? "Kiln Admin"
-          : email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-        const initials = name
+/**
+ * Session view for the storefront.
+ *
+ * The old version persisted a fake signed-in user so the UI had something to
+ * render. Now the real cookie session is the only source of truth: `useSession`
+ * exposes it in the shape the header and account pages already expect, and
+ * `signOut` calls the API so the session row is destroyed server-side.
+ */
+const shapeUser = (u: SessionUser | null) =>
+  u
+    ? {
+        name: u.name,
+        email: u.email,
+        initials: u.name
           .split(" ")
           .map((p) => p[0])
           .join("")
           .slice(0, 2)
-          .toUpperCase();
-        set({ user: { name, email, initials, role } });
-      },
-      signOut: () => set({ user: null }),
-    }),
-    { name: "kiln-session" },
-  ),
-);
+          .toUpperCase(),
+        role: u.role === "admin" || u.role === "owner" ? "admin" : "customer",
+      }
+    : null;
+
+export function useSession() {
+  const { user, loading } = useAuth();
+  return {
+    user: shapeUser(user),
+    loading,
+    signIn: () => {
+      /* sign-in always goes through authApi (see pages/auth) */
+    },
+    signOut: () => {
+      void authApi.logout();
+    },
+  };
+}
 
 /* ------------------------------------------------------------------ recently viewed */
 interface RecentState {

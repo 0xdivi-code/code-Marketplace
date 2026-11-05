@@ -4,10 +4,31 @@ import { ArrowLeft, MailCheck, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { AuthShell } from "./auth-shell";
+import { authApi, ApiError } from "@/lib/api";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = React.useState("");
   const [sent, setSent] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const send = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!email.includes("@")) {
+      setError("Enter the email you signed up with.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await authApi.forgot(email.trim());
+      setSent(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not reach the server.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <AuthShell
@@ -34,15 +55,13 @@ export default function ForgotPasswordPage() {
           <Button variant="outline" size="sm" className="mt-4" onClick={() => setSent(false)}>
             Use a different email
           </Button>
+          <p className="mt-3 text-[0.6875rem] text-ink-3">
+            In development the link is printed to the server console and appended to{" "}
+            <span className="font-mono">.data/mail.log</span>.
+          </p>
         </div>
       ) : (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            setSent(true);
-          }}
-          className="space-y-4"
-        >
+        <form onSubmit={send} className="space-y-4">
           <Field label="Email" htmlFor="email">
             <Input
               id="email"
@@ -53,8 +72,13 @@ export default function ForgotPasswordPage() {
               placeholder="you@studio.com"
             />
           </Field>
-          <Button type="submit" size="lg" className="w-full">
-            <Send className="size-4" /> Send reset link
+          {error && (
+            <p role="alert" className="text-[0.75rem] text-[#a3381a]">
+              {error}
+            </p>
+          )}
+          <Button type="submit" size="lg" className="w-full" disabled={busy}>
+            <Send className="size-4" /> {busy ? "Sending…" : "Send reset link"}
           </Button>
         </form>
       )}

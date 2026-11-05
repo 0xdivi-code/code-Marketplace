@@ -16,6 +16,7 @@ import LoginPage from "@/pages/auth/login";
 import RegisterPage from "@/pages/auth/register";
 import ForgotPasswordPage from "@/pages/auth/forgot";
 import ResetPasswordPage from "@/pages/auth/reset";
+import VerifyEmailPage from "@/pages/auth/verify-email";
 import AccountLayout from "@/pages/account/account-layout";
 import DashboardPage from "@/pages/account/dashboard";
 import OrdersPage from "@/pages/account/orders";
@@ -88,6 +89,7 @@ export default function App() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
 
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<AdminDashboard />} />

@@ -163,6 +163,36 @@ account.post(
 
     if (!priced.length) return c.json({ error: "Those products are no longer available." }, 400);
 
+    /**
+     * Never charge twice for the same tier. Upgrading is allowed, but only to a
+     * higher tier — buying "personal" when you already own "commercial" is a
+     * downgrade, not a purchase.
+     */
+    const owned = await db
+      .select({ productId: t.licenses.productId, license: t.licenses.license })
+      .from(t.licenses)
+      .where(and(eq(t.licenses.userId, user.id), eq(t.licenses.status, "active")));
+    const RANK: Record<License, number> = { personal: 1, commercial: 2, extended: 3 };
+    const blockers = priced.filter(({ product, license }) => {
+      const have = owned.find((o) => o.productId === product.id);
+      return have ? RANK[license] <= RANK[have.license as License] : false;
+    });
+    if (blockers.length) {
+      const worst = blockers[0];
+      const have = owned.find((o) => o.productId === worst.product.id)!;
+      return c.json(
+        {
+          error:
+            have.license === worst.license
+              ? `${worst.product.name} is already in your library.`
+              : `${worst.product.name} is already yours on the ${have.license} licence.`,
+          code: "already_owned",
+          slugs: blockers.map((d) => d.product.slug),
+        },
+        409,
+      );
+    }
+
     // Server-side pricing — never trust a price from the browser.
     const tierRows = await db
       .select()

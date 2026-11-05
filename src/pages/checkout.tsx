@@ -20,6 +20,7 @@ import { ProductArt } from "@/components/ui/product-art";
 import { useCart, useCartTotals, useSession } from "@/lib/store";
 import { cn, money } from "@/lib/utils";
 import { toast } from "sonner";
+import { api, ApiError, refreshAuth } from "@/lib/api";
 
 const steps = ["Details", "Payment", "Confirm"] as const;
 
@@ -47,26 +48,77 @@ export default function CheckoutPage() {
     terms: false,
   });
 
+  /**
+   * The cart is rehydrated from localStorage asynchronously, so the first render
+   * legitimately sees zero items. Wait a beat before treating an empty cart as
+   * "you came here directly" and bouncing back.
+   */
+  const [hydrated, setHydrated] = React.useState(false);
   React.useEffect(() => {
+    const id = window.setTimeout(() => setHydrated(true), 400);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  React.useEffect(() => {
+    if (!hydrated) return;
     if (count === 0 && !processing && !placed.current) navigate("/cart", { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [count]);
+  }, [count, hydrated]);
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  // The session arrives after first paint; backfill the fields the customer
+  // would otherwise have to retype, without clobbering anything they typed.
+  React.useEffect(() => {
+    if (!user) return;
+    setForm((f) => ({
+      ...f,
+      name: f.name || user.name,
+      email: f.email || user.email,
+    }));
+  }, [user?.name, user?.email]);
+
   const pay = async () => {
+    if (processing) return;
     setProcessing(true);
-    await new Promise((r) => setTimeout(r, 1400));
-    const id = `KL-${Math.floor(10500 + Math.random() * 400)}`;
-    placed.current = true;
-    clear();
-    toast.success("Payment approved", { description: `Order ${id} · receipt sent by email` });
-    navigate(`/order/${id}`, {
-      replace: true,
-      state: { lines: items.map((i) => ({ productSlug: i.product.slug, license: i.line.license })), total },
-    });
-    setProcessing(false);
+    try {
+      // The server reprices every line and issues the licences; the browser
+      // never gets to name a price.
+      const res = await api.post<{ order: { number: string; total: number; subtotal: number; discount: number } }>(
+        "/account/checkout",
+        {
+          lines: items.map((i) => ({ slug: i.product.slug, license: i.line.license })),
+          coupon: coupon ?? undefined,
+          country: form.country,
+          vatNumber: form.vat || undefined,
+        },
+      );
+      placed.current = true;
+      clear();
+      await refreshAuth(true);
+      toast.success("Payment approved", { description: `Order ${res.order.number} · receipt sent by email` });
+      navigate(`/order/${res.order.number}`, {
+        replace: true,
+        state: {
+          lines: items.map((i) => ({ productSlug: i.product.slug, license: i.line.license })),
+          total: res.order.total,
+        },
+      });
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        toast.error("Sign in to complete your order.", { description: "Your cart is saved." });
+        navigate("/login");
+      } else if (err instanceof ApiError && err.status === 409 && err.data?.code === "already_owned") {
+        // Nothing was charged — send them back to the cart to prune it.
+        toast.error(err.message, { description: "Remove it from your cart to check out the rest." });
+        navigate("/cart");
+      } else {
+        toast.error(err instanceof ApiError ? err.message : "Payment could not be completed.");
+      }
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const canContinue =

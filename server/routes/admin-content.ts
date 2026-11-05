@@ -441,11 +441,54 @@ adminApi.patch(
       .returning();
 
     // A refund must also close access, otherwise the customer keeps the source.
+    // But if the same customer bought the product again on another order that is
+    // still paid, their licence stays — only the refunded purchase disappears.
     if (input.status === "refunded" && order.status !== "refunded") {
-      await db
-        .update(t.licenses)
-        .set({ status: "revoked", revokedAt: new Date(), revokedReason: `Order ${order.number} refunded` })
-        .where(eq(t.licenses.orderId, order.id));
+      const affected = await db.select().from(t.licenses).where(eq(t.licenses.orderId, order.id));
+      for (const licence of affected) {
+        const survivors = order.userId
+          ? await db
+              .select({ id: t.orders.id, number: t.orders.number })
+              .from(t.orders)
+              .innerJoin(t.orderItems, eq(t.orderItems.orderId, t.orders.id))
+              .where(
+                and(
+                  eq(t.orders.userId, order.userId),
+                  eq(t.orderItems.productId, licence.productId),
+                  eq(t.orders.status, "paid"),
+                  sql`${t.orders.id} <> ${order.id}`,
+                ),
+              )
+              .limit(1)
+          : [];
+
+        if (survivors[0]) {
+          // Re-read the surviving purchase so an upgrade refunded after the fact
+          // falls back to the tier the customer actually still owns.
+          const survivorLine = (
+            await db
+              .select({ license: t.orderItems.license })
+              .from(t.orderItems)
+              .where(and(eq(t.orderItems.orderId, survivors[0].id), eq(t.orderItems.productId, licence.productId)))
+              .limit(1)
+          )[0];
+          await db
+            .update(t.licenses)
+            .set({
+              orderId: survivors[0].id,
+              license: survivorLine?.license ?? licence.license,
+              status: "active",
+              revokedAt: null,
+              revokedReason: null,
+            })
+            .where(eq(t.licenses.id, licence.id));
+        } else {
+          await db
+            .update(t.licenses)
+            .set({ status: "revoked", revokedAt: new Date(), revokedReason: `Order ${order.number} refunded` })
+            .where(eq(t.licenses.id, licence.id));
+        }
+      }
       await db.update(t.payments).set({ status: "refunded" }).where(eq(t.payments.orderId, order.id));
       await audit(c, { action: `refunded order ${order.number}`, target: order.number, kind: "order" });
     } else {

@@ -3,7 +3,7 @@ import { ArrowRight, ShieldCheck, ShoppingBag, Tag, Trash2, X } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { ProductArt } from "@/components/ui/product-art";
 import { NativeSelect } from "@/components/ui/field";
-import { useCart, useCartTotals } from "@/lib/store";
+import { useCart, useCartTotals, validateCoupon } from "@/lib/store";
 import { money } from "@/lib/utils";
 import * as React from "react";
 
@@ -114,8 +114,15 @@ export default function CartPage() {
             <h2 className="font-display text-lg">Order summary</h2>
 
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
+                if (!code.trim()) return;
+                // Checked against the coupon table, not a hard-coded list.
+                const result = await validateCoupon(code, subtotal);
+                if (!result.ok) {
+                  setError(result.error ?? "That code isn’t valid.");
+                  return;
+                }
                 const ok = applyCoupon(code);
                 setError(ok ? null : "That code isn’t valid.");
                 if (ok) setCode("");

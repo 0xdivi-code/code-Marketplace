@@ -1,20 +1,26 @@
 import * as React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Check, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { AuthShell } from "./auth-shell";
 import { cn } from "@/lib/utils";
+import { authApi, ApiError } from "@/lib/api";
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const token = params.get("token") ?? "";
+  const [error, setError] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState(false);
   const [password, setPassword] = React.useState("");
   const [confirm, setConfirm] = React.useState("");
   const [show, setShow] = React.useState(false);
   const [done, setDone] = React.useState(false);
 
+  // Keep these in step with the server rule (10 characters minimum).
   const rules = [
-    { label: "At least 8 characters", ok: password.length >= 8 },
+    { label: "At least 10 characters", ok: password.length >= 10 },
     { label: "One uppercase letter", ok: /[A-Z]/.test(password) },
     { label: "One number", ok: /\d/.test(password) },
     { label: "Passwords match", ok: password.length > 0 && password === confirm },
@@ -44,9 +50,23 @@ export default function ResetPasswordPage() {
         </div>
       ) : (
         <form
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
-            if (valid) setDone(true);
+            if (!valid || busy) return;
+            if (!token) {
+              setError("This page needs a reset link. Request a new one from the sign-in screen.");
+              return;
+            }
+            setBusy(true);
+            setError(null);
+            try {
+              await authApi.reset(token, password);
+              setDone(true);
+            } catch (err) {
+              setError(err instanceof ApiError ? err.message : "Could not reach the server.");
+            } finally {
+              setBusy(false);
+            }
           }}
           className="space-y-4"
         >
@@ -91,7 +111,12 @@ export default function ResetPasswordPage() {
               </li>
             ))}
           </ul>
-          <Button type="submit" size="lg" className="w-full" disabled={!valid}>
+          {error && (
+            <p role="alert" className="text-[0.75rem] text-[#a3381a]">
+              {error}
+            </p>
+          )}
+          <Button type="submit" size="lg" className="w-full" disabled={!valid || busy}>
             Save password <ArrowRight className="size-4" />
           </Button>
           <p className="flex items-center gap-1.5 text-[0.625rem] text-ink-3">
