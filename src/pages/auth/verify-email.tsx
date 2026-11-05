@@ -17,12 +17,19 @@ export default function VerifyEmailPage() {
   const [state, setState] = React.useState<"working" | "done" | "failed">("working");
   const [message, setMessage] = React.useState("");
 
+  // A verification token is single-use, so the request must fire exactly once —
+  // StrictMode's double-invoke in development would otherwise burn it and then
+  // show the "already used" error over a perfectly good success.
+  const attempted = React.useRef(false);
+
   React.useEffect(() => {
     if (!token) {
       setState("failed");
       setMessage("This link is missing its token. Open the link from your inbox again.");
       return;
     }
+    if (attempted.current) return;
+    attempted.current = true;
     let alive = true;
     authApi
       .verify(token)

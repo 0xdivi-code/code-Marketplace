@@ -88,7 +88,7 @@ export default function RegisterPage() {
             required
           />
         </Field>
-        <Field label="Password" htmlFor="password" hint="At least 8 characters, one number">
+        <Field label="Password" htmlFor="password" hint="At least 10 characters, one number">
           <div className="relative">
             <Input
               id="password"
