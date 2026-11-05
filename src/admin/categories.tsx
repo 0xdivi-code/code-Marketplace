@@ -132,10 +132,9 @@ export default function AdminCategories() {
             return (
               <div key={c.slug} className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-2/40">
                 <GripVertical className="size-3.5 shrink-0 cursor-grab text-ink-3" />
-                <span
-                  className="size-8 shrink-0 rounded-[6px]"
-                  style={{ background: `linear-gradient(135deg, ${c.from}, ${c.to})` }}
-                />
+                <span className="grid size-8 shrink-0 place-items-center rounded-[6px] border border-line bg-surface-2 text-ink-2">
+                  <CategoryGlyph glyph={c.glyph} className="size-4" />
+                </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[0.8125rem] font-medium">{c.name}</p>
                   <p className="truncate text-[0.5625rem] text-ink-3">{c.blurb}</p>
