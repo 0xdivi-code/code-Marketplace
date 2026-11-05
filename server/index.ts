@@ -17,6 +17,8 @@ import { migrate } from "./db/migrate";
 import { auth, admin as adminAuth } from "./routes/auth";
 import { api } from "./routes/storefront";
 import { account } from "./routes/account";
+import { webhooks } from "./routes/webhooks";
+import { free } from "./routes/free";
 import { adminApi } from "./routes/admin";
 import { adminContentApi } from "./routes/admin-content";
 import { pruneSessions } from "./lib/auth";
@@ -96,6 +98,8 @@ app.route("/api", api);
 app.route("/api/account", account);
 app.route("/api/admin", adminApi);
 app.route("/api/admin", adminContentApi);
+app.route("/api/webhooks", webhooks);
+app.route("/api", free);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 

@@ -15,6 +15,8 @@ import {
   uniqueIndex,
   index,
   primaryKey,
+  numeric,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -160,6 +162,9 @@ export const products = pgTable(
     /** integer cents */
     price: integer("price").notNull().default(0),
     compareAt: integer("compare_at"),
+    /** time-boxed sale price in cents; effective price is the lower of this and `price` */
+    salePrice: integer("sale_price"),
+    saleEndsAt: timestamp("sale_ends_at", { withTimezone: true }),
     free: boolean("free").notNull().default(false),
     featured: boolean("featured").notNull().default(false),
     trending: boolean("trending").notNull().default(false),
@@ -248,7 +253,7 @@ export const pricingTiers = pgTable(
     productId: text("product_id")
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
-    license: text("license", { enum: ["personal", "commercial", "extended"] }).notNull(),
+    license: text("license", { enum: ["personal", "commercial", "extended", "developer"] }).notNull(),
     name: text("name").notNull(),
     price: integer("price").notNull().default(0),
     compareAt: integer("compare_at"),
@@ -272,7 +277,7 @@ export const licenses = pgTable(
     productId: text("product_id")
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
-    license: text("license", { enum: ["personal", "commercial", "extended"] }).notNull(),
+    license: text("license", { enum: ["personal", "commercial", "extended", "developer"] }).notNull(),
     orderId: text("order_id"),
     status: text("status", { enum: ["active", "revoked"] }).notNull().default("active"),
     grantedBy: text("granted_by", { enum: ["purchase", "manual", "free"] }).notNull().default("purchase"),
@@ -306,6 +311,13 @@ export const orders = pgTable(
     total: integer("total").notNull().default(0),
     currency: text("currency").notNull().default("USD"),
     couponCode: text("coupon_code"),
+    /** quoted to support, and printed on the certificate */
+    reference: text("reference"),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    refundedAt: timestamp("refunded_at", { withTimezone: true }),
+    refundReason: text("refund_reason"),
+    /** set by the client so a retried submit cannot double-charge */
+    idempotencyKey: text("idempotency_key"),
     country: text("country"),
     vatNumber: text("vat_number"),
     notes: text("notes"),
@@ -326,8 +338,10 @@ export const orderItems = pgTable(
     /** snapshot so history survives a deleted product */
     productName: text("product_name").notNull(),
     productSlug: text("product_slug").notNull(),
-    license: text("license", { enum: ["personal", "commercial", "extended"] }).notNull(),
+    license: text("license", { enum: ["personal", "commercial", "extended", "developer"] }).notNull(),
     unitPrice: integer("unit_price").notNull().default(0),
+    /** share of the order discount applied to this line, in cents */
+    discount: integer("discount").notNull().default(0),
     quantity: integer("quantity").notNull().default(1),
   },
   (t) => [index("order_items_order_idx").on(t.orderId)],
@@ -340,17 +354,42 @@ export const payments = pgTable(
     orderId: text("order_id")
       .notNull()
       .references(() => orders.id, { onDelete: "cascade" }),
-    provider: text("provider", { enum: ["stripe", "paypal", "bank", "manual"] })
+    provider: text("provider", {
+      enum: ["stripe", "paypal", "bank", "manual", "nowpayments", "crypto_manual", "free"],
+    })
       .notNull()
-      .default("stripe"),
-    /** "demo" until a real gateway is wired in step 3 */
-    mode: text("mode", { enum: ["live", "test", "demo"] }).notNull().default("demo"),
-    status: text("status", { enum: ["pending", "succeeded", "failed", "refunded"] })
+      .default("nowpayments"),
+    mode: text("mode", { enum: ["live", "test", "demo"] }).notNull().default("test"),
+    status: text("status", {
+      enum: [
+        "pending",
+        "waiting",
+        "confirming",
+        "succeeded",
+        "partially_paid",
+        "failed",
+        "expired",
+        "refunded",
+      ],
+    })
       .notNull()
       .default("pending"),
     amount: integer("amount").notNull().default(0),
     fee: integer("fee").notNull().default(0),
     reference: text("reference"),
+    /** provider-side id, the join key for webhooks */
+    providerRef: text("provider_ref"),
+    payCurrency: text("pay_currency"),
+    payAmount: numeric("pay_amount", { precision: 24, scale: 10 }),
+    payAddress: text("pay_address"),
+    payinHash: text("payin_hash"),
+    network: text("network"),
+    actuallyPaid: numeric("actually_paid", { precision: 24, scale: 10 }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    invoiceUrl: text("invoice_url"),
+    /** the provider's own word for the status, kept verbatim for debugging */
+    rawStatus: text("raw_status"),
+    updatedAt: updatedAt(),
     createdAt: createdAt(),
   },
   (t) => [index("payments_order_idx").on(t.orderId)],
@@ -371,6 +410,93 @@ export const downloads = pgTable(
   },
   (t) => [index("downloads_user_idx").on(t.userId), index("downloads_product_idx").on(t.productId)],
 );
+
+/* -------------------------------------------------- crypto payment sessions */
+
+/**
+ * One hosted-invoice attempt. An order can be retried in a different coin
+ * without destroying the audit trail, so sessions are append-only.
+ */
+export const paymentSessions = pgTable(
+  "payment_sessions",
+  {
+    id: id(),
+    orderId: text("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull().default("nowpayments"),
+    mode: text("mode").notNull().default("test"),
+    payCurrency: text("pay_currency").notNull(),
+    network: text("network"),
+    /** cents, always in `priceCurrency` */
+    priceAmount: integer("price_amount").notNull(),
+    priceCurrency: text("price_currency").notNull().default("usd"),
+    payAmount: numeric("pay_amount", { precision: 24, scale: 10 }),
+    payAddress: text("pay_address"),
+    invoiceUrl: text("invoice_url"),
+    providerRef: text("provider_ref"),
+    purchaseId: text("purchase_id"),
+    status: text("status").notNull().default("waiting"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("payment_sessions_order_idx").on(t.orderId)],
+);
+
+/** Every inbound webhook, including forgeries. The dedupe key makes replays safe. */
+export const webhookEvents = pgTable(
+  "webhook_events",
+  {
+    id: id(),
+    provider: text("provider").notNull(),
+    eventKey: text("event_key"),
+    signatureOk: boolean("signature_ok").notNull().default(false),
+    status: text("status"),
+    orderNumber: text("order_number"),
+    paymentRef: text("payment_ref"),
+    payload: jsonb("payload").$type<unknown>(),
+    note: text("note"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("webhook_events_dedupe").on(t.provider, t.eventKey),
+    index("webhook_events_created_idx").on(t.createdAt),
+  ],
+);
+
+/** Expiring, capped download links issued per request rather than per page load. */
+export const downloadTokens = pgTable(
+  "download_tokens",
+  {
+    id: id(),
+    tokenHash: text("token_hash").notNull(),
+    userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+    productId: text("product_id").references(() => products.id, { onDelete: "cascade" }),
+    fileId: text("file_id").references(() => productFiles.id, { onDelete: "set null" }),
+    version: text("version"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    maxUses: integer("max_uses").notNull().default(3),
+    uses: integer("uses").notNull().default(0),
+    ip: text("ip"),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("download_tokens_hash").on(t.tokenHash), index("download_tokens_user_idx").on(t.userId)],
+);
+
+/** Editable licence headings — terms are shown before checkout. */
+export const licenseTerms = pgTable("license_terms", {
+  id: id(),
+  license: text("license").notNull().unique(),
+  name: text("name").notNull(),
+  summary: text("summary").notNull().default(""),
+  terms: text("terms").notNull().default(""),
+  seats: text("seats").notNull().default(""),
+  position: integer("position").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+  updatedAt: updatedAt(),
+});
 
 export const reviews = pgTable(
   "reviews",
@@ -408,6 +534,11 @@ export const coupons = pgTable(
     limit: integer("limit").notNull().default(100),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     active: boolean("active").notNull().default(true),
+    /** scope: blank means the whole cart */
+    productSlug: text("product_slug"),
+    categorySlug: text("category_slug"),
+    minSubtotal: integer("min_subtotal").notNull().default(0),
+    oncePerCustomer: boolean("once_per_customer").notNull().default(true),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("coupons_code_key").on(sql`upper(${t.code})`)],

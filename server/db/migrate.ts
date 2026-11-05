@@ -28,6 +28,12 @@ export async function migrate({ log = true }: { log?: boolean } = {}) {
     (await db.execute<{ name: string }>(sql`select name from _migrations`)).rows.map((r) => r.name),
   );
 
+  // `FORCE_MIGRATION=<file>` re-runs one file even though it is in the ledger.
+  // Used when a migration is edited before a release; it must already be
+  // idempotent, which every file here is.
+  const forced = process.env.FORCE_MIGRATION;
+  if (forced) await db.execute(sql`delete from _migrations where name = ${forced}`);
+
   const files = readdirSync(MIGRATIONS_DIR)
     .filter((f) => f.endsWith(".sql"))
     .sort();
