@@ -195,7 +195,8 @@ free.get("/downloads/:token", async (c) => {
     userAgent: c.req.header("user-agent"),
   });
 
-  return new Response(bytes, {
+  // Buffer is a Uint8Array; the DOM typings just do not say so.
+  return new Response(new Uint8Array(bytes), {
     headers: {
       "content-type": file.mimeType || "application/zip",
       "content-length": String(bytes.byteLength),

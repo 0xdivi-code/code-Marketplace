@@ -34,7 +34,9 @@ adminApi.get("/categories", async (c) => {
   const counts = await db.execute<{ category_id: string; n: number }>(
     sql`select category_id, count(*)::int as n from products where category_id is not null group by 1`,
   );
-  const countMap = new Map(counts.rows.map((r) => [r.category_id, r.n]));
+  const countMap = new Map<string, number>(
+    counts.rows.map((r: { category_id: string; n: number }): [string, number] => [r.category_id, r.n]),
+  );
   return c.json({
     categories: rows.map((row) => ({
       ...toCategory(row),
@@ -192,7 +194,7 @@ adminApi.get("/customers", async (c) => {
     from orders where status = 'paid' and user_id is not null group by 1
   `);
   const spendMap = new Map<string, { user_id: string; orders: number; spent: number }>(
-    spend.rows.map((r): [string, { user_id: string; orders: number; spent: number }] => [r.user_id, r]),
+    spend.rows.map((r: { user_id: string; orders: number; spent: number }): [string, { user_id: string; orders: number; spent: number }] => [r.user_id, r]),
   );
 
   return c.json({

@@ -185,7 +185,9 @@ export const products = pgTable(
     artInk: text("art_ink").notNull().default("#eef4e9"),
     artKind: text("art_kind").notNull().default("window"),
     coverPath: text("cover_path"),
-    gallery: jsonb("gallery").$type<{ id: string; caption: string; path: string }[]>().default([]),
+    // `path` is optional: a gallery entry can be a caption-only placeholder
+    // before an image is uploaded, and the editor's zod input allows that.
+    gallery: jsonb("gallery").$type<{ id: string; caption: string; path?: string }[]>().default([]),
     features: jsonb("features").$type<{ title: string; body: string }[]>().default([]),
     highlights: jsonb("highlights").$type<string[]>().default([]),
     includes: jsonb("includes").$type<string[]>().default([]),

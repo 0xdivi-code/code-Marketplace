@@ -161,7 +161,7 @@ adminApi.get("/analytics", async (c) => {
   const step = bucket === "hour" ? 3_600_000 : 86_400_000;
   const start = bucket === "hour" ? since : new Date(since.toISOString().slice(0, 10));
   const byKey = new Map<string, { bucket: string; revenue: number; orders: number }>(
-    series.rows.map((r): [string, { bucket: string; revenue: number; orders: number }] => [r.bucket, r]),
+    series.rows.map((r: { bucket: string; revenue: number; orders: number }): [string, { bucket: string; revenue: number; orders: number }] => [r.bucket, r]),
   );
   for (let ms = start.getTime(); ms <= Date.now(); ms += step) {
     const d = new Date(ms);
@@ -670,7 +670,7 @@ adminApi.patch("/products/:slug", zValidator("json", productInput.partial()), as
     ...(input.highlights !== undefined ? { highlights: input.highlights } : {}),
     ...(input.includes !== undefined ? { includes: input.includes } : {}),
     ...(input.requirements !== undefined ? { requirements: input.requirements } : {}),
-    ...(input.gallery !== undefined ? { gallery: input.gallery as never } : {}),
+    ...(input.gallery !== undefined ? { gallery: input.gallery } : {}),
     ...(input.seoTitle !== undefined ? { seoTitle: input.seoTitle } : {}),
     ...(input.seoDescription !== undefined ? { seoDescription: input.seoDescription } : {}),
     ...(input.art

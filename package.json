@@ -12,7 +12,7 @@
     "db:migrate": "tsx server/scripts/migrate.ts",
     "db:seed": "tsx server/scripts/seed.ts",
     "db:reset": "tsx server/scripts/reset.ts",
-    "dev:all": "concurrently -n api,web -c green,cyan \"npm:api\" \"npm:dev\"",
+    "dev:all": "node scripts/dev.mjs",
     "test:payments": "tsx server/scripts/test-payments.ts",
     "typecheck:server": "tsc -p tsconfig.server.json --noEmit",
     "test:journey": "tsx server/scripts/test-journey.ts",
