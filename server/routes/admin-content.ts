@@ -859,6 +859,16 @@ adminApi.delete("/announcements/:id", async (c) => {
 
 /* ---------------------------------------------------------------- CMS: settings */
 
+/** Every key/value the storefront reads, in one call, so the admin can edit them. */
+adminApi.get("/settings", async (c) => {
+  const db = getDb();
+  const rows = await db.select().from(t.settings).orderBy(asc(t.settings.key));
+  return c.json({
+    settings: rows,
+    values: Object.fromEntries(rows.map((r) => [r.key, r.value])),
+  });
+});
+
 adminApi.patch(
   "/settings",
   zValidator("json", z.object({ values: z.record(z.string(), z.unknown()) })),

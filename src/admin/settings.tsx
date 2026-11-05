@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea, NativeSelect, Switch, Checkbox } from "@/components/ui/field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/disclosure";
 import { Badge } from "@/components/ui/badge";
-import { SITE } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { api, ApiError } from "@/lib/api";
 
 const sections = [
   { id: "store", label: "Store", icon: Store },
@@ -20,8 +20,98 @@ const sections = [
   { id: "security", label: "Security", icon: ShieldCheck },
 ];
 
+interface StoreValues {
+  name: string;
+  tagline: string;
+  supportEmail: string;
+  currency: string;
+  vatRate: number;
+}
+
+interface AdminMe {
+  user: { id: string; email: string; name: string; totpEnabledAt: string | null } | null;
+}
+
 export default function AdminSettings() {
   const [tab, setTab] = React.useState("store");
+  const [values, setValues] = React.useState<StoreValues | null>(null);
+  const [dirty, setDirty] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+  const [me, setMe] = React.useState<AdminMe["user"]>(null);
+  const [twoFactor, setTwoFactor] = React.useState<{ secret: string; uri: string } | null>(null);
+  const [code, setCode] = React.useState("");
+  const [enrolling, setEnrolling] = React.useState(false);
+
+  React.useEffect(() => {
+    void (async () => {
+      try {
+        const res = await api.get<{ values: Record<string, unknown> }>("/admin/settings");
+        const store = (res.values.store ?? {}) as Partial<StoreValues>;
+        setValues({
+          name: store.name ?? "Kiln",
+          tagline: store.tagline ?? "",
+          supportEmail: store.supportEmail ?? "",
+          currency: store.currency ?? "USD",
+          vatRate: store.vatRate ?? 0,
+        });
+      } catch (err) {
+        toast.error(err instanceof ApiError ? err.message : "Could not load settings.");
+      }
+      try {
+        const auth = await api.get<AdminMe>("/admin/auth/me");
+        setMe(auth.user);
+      } catch {
+        /* the console gate already guarantees a session */
+      }
+    })();
+  }, []);
+
+  function update<K extends keyof StoreValues>(key: K, value: StoreValues[K]) {
+    setValues((v) => (v ? { ...v, [key]: value } : v));
+    setDirty(true);
+  }
+
+  async function save() {
+    if (!values) return;
+    setSaving(true);
+    try {
+      await api.patch("/admin/settings", { values: { store: values } });
+      setDirty(false);
+      toast.success("Settings saved", { description: "The storefront reads these on next load." });
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not save your changes.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function beginTwoFactor() {
+    setEnrolling(true);
+    try {
+      const res = await api.post<{ secret: string; uri: string }>("/admin/auth/2fa/setup", {});
+      setTwoFactor(res);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not start 2FA setup.");
+    } finally {
+      setEnrolling(false);
+    }
+  }
+
+  async function confirmTwoFactor() {
+    setEnrolling(true);
+    try {
+      await api.post("/admin/auth/2fa/enable", { code: code.trim() });
+      toast.success("Two-factor enabled", { description: "Your next sign-in will ask for a code." });
+      setTwoFactor(null);
+      setCode("");
+      const auth = await api.get<AdminMe>("/admin/auth/me");
+      setMe(auth.user);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "That code did not match.");
+    } finally {
+      setEnrolling(false);
+    }
+  }
 
   return (
     <div>
@@ -29,12 +119,8 @@ export default function AdminSettings() {
         title="Store settings"
         subtitle="Everything that affects the storefront and checkout"
         actions={
-          <Button
-            size="xs"
-            className="h-8"
-            onClick={() => toast.success("Settings saved", { description: "Changes are live for new visitors." })}
-          >
-            <Save className="size-3.5" /> Save changes
+          <Button size="xs" className="h-8" disabled={saving || !dirty} onClick={() => void save()}>
+            <Save className="size-3.5" /> {saving ? "Saving…" : dirty ? "Save changes" : "Saved"}
           </Button>
         }
       />
@@ -64,14 +150,27 @@ export default function AdminSettings() {
               <Panel title="Store identity" bodyClassName="space-y-3 p-4">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Store name" htmlFor="sname">
-                    <Input id="sname" defaultValue={SITE.name} />
+                    <Input
+                      id="sname"
+                      value={values?.name ?? ""}
+                      onChange={(e) => update("name", e.target.value)}
+                    />
                   </Field>
-                  <Field label="Store URL" htmlFor="surl">
-                    <Input id="surl" defaultValue={`https://${SITE.domain}`} className="font-mono text-[0.8125rem]" />
+                  <Field label="Store URL" htmlFor="surl" hint="Set by your deployment">
+                    <Input
+                      id="surl"
+                      value={typeof window !== "undefined" ? window.location.origin : ""}
+                      readOnly
+                      className="font-mono text-[0.8125rem] opacity-70"
+                    />
                   </Field>
                 </div>
                 <Field label="Tagline" htmlFor="stag">
-                  <Input id="stag" defaultValue={SITE.tagline} />
+                  <Input
+                    id="stag"
+                    value={values?.tagline ?? ""}
+                    onChange={(e) => update("tagline", e.target.value)}
+                  />
                 </Field>
                 <Field label="About the store" htmlFor="sabout" hint="Shown on the footer and about page">
                   <Textarea
@@ -82,7 +181,11 @@ export default function AdminSettings() {
                 </Field>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Support email" htmlFor="semail">
-                    <Input id="semail" defaultValue={SITE.support} />
+                    <Input
+                      id="semail"
+                      value={values?.supportEmail ?? ""}
+                      onChange={(e) => update("supportEmail", e.target.value)}
+                    />
                   </Field>
                   <Field label="Currency" htmlFor="scur">
                     <NativeSelect id="scur" className="h-11 text-sm">
@@ -206,17 +309,17 @@ export default function AdminSettings() {
               <Panel title="Invoices" bodyClassName="space-y-3 p-4">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Invoice prefix" htmlFor="ip">
-                    <Input id="ip" defaultValue="KL-INV" className="font-mono" />
+                    <Input id="ip" value="KL-" readOnly className="font-mono opacity-70" />
                   </Field>
-                  <Field label="Next number" htmlFor="inn">
-                    <Input id="inn" defaultValue="10483" className="font-mono" />
+                  <Field label="Currency" htmlFor="inn" hint="Orders store integer cents">
+                    <Input id="inn" value={values?.currency ?? "USD"} readOnly className="font-mono opacity-70" />
                   </Field>
                 </div>
                 <Field label="Legal entity" htmlFor="le">
-                  <Input id="le" defaultValue="Kiln Studio, Unipessoal Lda. · PT 516 204 883" />
+                  <Input id="le" value={`${values?.name ?? "Kiln"} — legal entity on invoices`} readOnly className="opacity-70" />
                 </Field>
                 <Field label="Registered address" htmlFor="ra">
-                  <Textarea id="ra" defaultValue={SITE.address} className="min-h-16" />
+                  <Textarea id="ra" value={values?.tagline ?? ""} readOnly className="min-h-16 opacity-70" />
                 </Field>
                 <div className="flex items-center gap-2 rounded-sm bg-sage/50 px-3 py-2 text-[0.625rem] text-[#2c4331] dark:bg-brand-soft dark:text-sage">
                   <ShieldCheck className="size-3.5" /> VIES validation enabled — reverse charge applies for valid EU VAT numbers.
@@ -295,10 +398,10 @@ export default function AdminSettings() {
               <Panel title="Transactional email" bodyClassName="space-y-3 p-4">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="From name" htmlFor="fn">
-                    <Input id="fn" defaultValue="Kiln Studio" />
+                    <Input id="fn" value={`${values?.name ?? "Kiln"} Studio`} readOnly className="opacity-70" />
                   </Field>
                   <Field label="Reply-to" htmlFor="fr">
-                    <Input id="fr" defaultValue={SITE.email} />
+                    <Input id="fr" value={values?.supportEmail ?? ""} readOnly className="font-mono text-[0.8125rem] opacity-70" />
                   </Field>
                 </div>
                 <div className="rounded-sm border border-line">
@@ -340,28 +443,87 @@ export default function AdminSettings() {
 
           {tab === "security" && (
             <>
-              <Panel title="Account security" bodyClassName="divide-y divide-line">
-                {[
-                  { l: "Two-factor for staff", d: "Required for admin accounts", on: true },
-                  { l: "IP allowlist for admin", d: "Restrict the console to known addresses", on: false },
-                  { l: "Session timeout", d: "Sign staff out after 8 hours idle", on: true },
-                  { l: "Audit log retention", d: "Keep activity for 24 months", on: true },
-                ].map((s) => (
-                  <div key={s.l} className="flex items-center justify-between gap-4 px-4 py-3">
-                    <div>
-                      <p className="text-[0.75rem] font-medium">{s.l}</p>
-                      <p className="text-[0.5625rem] text-ink-3">{s.d}</p>
+              <Panel
+                title="Two-factor authentication"
+                description="Required before this console is exposed to the internet"
+                bodyClassName="space-y-3 p-4"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-[0.75rem] font-medium">
+                      {me?.totpEnabledAt ? "Enabled on your account" : "Not enabled"}
+                    </p>
+                    <p className="text-[0.5625rem] text-ink-3">
+                      {me?.totpEnabledAt
+                        ? `Since ${new Date(me.totpEnabledAt).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })} · a 6-digit code is asked for at every admin sign-in`
+                        : "Admin sign-in accepts a password alone right now."}
+                    </p>
+                  </div>
+                  <Badge variant={me?.totpEnabledAt ? "success" : "warn"} size="sm">
+                    {me?.totpEnabledAt ? "On" : "Off"}
+                  </Badge>
+                </div>
+
+                {!me?.totpEnabledAt && !twoFactor && (
+                  <Button size="xs" variant="outline" className="h-8" disabled={enrolling} onClick={() => void beginTwoFactor()}>
+                    {enrolling ? "Preparing…" : "Set up an authenticator"}
+                  </Button>
+                )}
+
+                {twoFactor && (
+                  <div className="space-y-2 rounded-sm border border-line bg-surface-2/50 p-3">
+                    <p className="text-[0.625rem] text-ink-2">
+                      Add this key to any TOTP app (1Password, Authy, Google Authenticator), then enter the
+                      code it shows.
+                    </p>
+                    <code className="block break-all rounded-sm bg-surface px-2 py-1.5 font-mono text-[0.6875rem] tracking-wider">
+                      {twoFactor.secret}
+                    </code>
+                    <div className="flex gap-2">
+                      <Input
+                        value={code}
+                        onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        placeholder="123456"
+                        inputMode="numeric"
+                        className="h-9 w-28 font-mono"
+                      />
+                      <Button size="sm" disabled={enrolling || code.length !== 6} onClick={() => void confirmTwoFactor()}>
+                        Verify and enable
+                      </Button>
                     </div>
-                    <Switch defaultChecked={s.on} />
+                  </div>
+                )}
+              </Panel>
+
+              <Panel title="Enforced by the server" bodyClassName="divide-y divide-line">
+                {[
+                  { l: "Admin sessions expire", d: "8 hours, signed httpOnly cookie", on: true },
+                  { l: "Sign-in rate limit", d: "6 attempts per 15 minutes, per IP", on: true },
+                  { l: "Download links", d: "Signed, expire 5 minutes after issue", on: true },
+                  { l: "Suspended accounts", d: "Every session revoked the moment you suspend", on: true },
+                ].map((s2) => (
+                  <div key={s2.l} className="flex items-center justify-between gap-4 px-4 py-3">
+                    <div>
+                      <p className="text-[0.75rem] font-medium">{s2.l}</p>
+                      <p className="text-[0.5625rem] text-ink-3">{s2.d}</p>
+                    </div>
+                    <Badge variant="sage" size="sm">
+                      <Check className="size-2.5" /> On
+                    </Badge>
                   </div>
                 ))}
               </Panel>
+
               <Panel title="Compliance" bodyClassName="space-y-2 p-4">
                 {[
-                  ["GDPR data export", "Available to customers in account settings"],
-                  ["Right to erasure", "Queued deletes purge within 30 days"],
-                  ["PCI scope", "No card data touches our servers (Stripe Elements)"],
-                  ["Backups", "Nightly, 30-day retention, encrypted at rest"],
+                  ["GDPR data export", "Every customer's orders and licences export as CSV"],
+                  ["Right to erasure", "Suspending an account revokes access immediately"],
+                  ["PCI scope", "No card data is stored — the demo gateway never sees a PAN"],
+                  ["Backups", "PGlite data directory under .data/ — copy it to back up"],
                 ].map(([k, v]) => (
                   <div key={k} className="flex items-start justify-between gap-3">
                     <div>
