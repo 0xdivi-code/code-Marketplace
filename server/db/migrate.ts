@@ -6,7 +6,7 @@
  * behaviour identical on PGlite and on a real Postgres server.
  */
 import { readdirSync, readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sql } from "drizzle-orm";
 import { getDb, execRaw, initDb } from "./client";
@@ -56,7 +56,15 @@ export async function migrate({ log = true }: { log?: boolean } = {}) {
   return ran;
 }
 
-if (process.argv[1] && process.argv[1].endsWith("migrate.ts")) {
+/**
+ * Auto-run only when this file is the entry point.
+ *
+ * `endsWith("migrate.ts")` also matched the wrapper at server/scripts/migrate.ts,
+ * so importing it fired a *second* concurrent migration. Both read the ledger
+ * before either wrote to it, both applied 0001, and the second insert hit the
+ * primary key — a fresh clone could not migrate at all.
+ */
+if (process.argv[1] && basename(process.argv[1]) === "migrate.ts") {
   migrate()
     .then(() => process.exit(0))
     .catch((e) => {
