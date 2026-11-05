@@ -451,6 +451,54 @@ await test("admin diagnostics expose the rejected webhook", async () => {
   assert.ok(events.some((e) => e.signatureOk === false), "the forgery was not recorded");
 });
 
+await test("a bundle prices below its members and grants every licence", async () => {
+  const created = await json("/api/admin/bundles", {
+    method: "POST",
+    cookie: admin,
+    body: JSON.stringify({
+      slug: "test-bundle",
+      name: "Test Bundle",
+      price: 99,
+      products: ["lattice-admin", "relay-api"],
+    }),
+  });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+
+  const q = await json("/api/account/quote", {
+    method: "POST",
+    body: JSON.stringify({ lines: [{ slug: "test-bundle", license: "personal", quantity: 1 }] }),
+  });
+  assert.equal(q.status, 200);
+  assert.equal(q.body!.total, 9900, "the bundle price was not charged");
+  const line = (q.body!.lines as { grants: unknown[]; listPrice: number }[])[0];
+  assert.equal(line.grants.length, 2, "the bundle should grant two products");
+  assert.ok(line.listPrice > 9900, "the struck-through total should exceed the bundle price");
+});
+
+await test("buying a bundle delivers both products", async () => {
+  const bought = await paidOrder(customer, "test-bundle", "personal");
+  const lib = await json("/api/account/library", { cookie: customer });
+  const slugs = (lib.body!.library as { slug: string }[]).map((i) => i.slug);
+  assert.ok(slugs.includes("lattice-admin"), "lattice-admin missing from library");
+  assert.ok(slugs.includes("relay-api"), "relay-api missing from library");
+
+  const order = await json(`/api/account/orders/${bought.number}`, { cookie: customer });
+  assert.equal((order.body!.order as { total: number }).total, 9900, "order total should be the bundle price");
+});
+
+await test("an inactive bundle is not purchasable", async () => {
+  await json("/api/admin/bundles/test-bundle", {
+    method: "PATCH",
+    cookie: admin,
+    body: JSON.stringify({ active: false }),
+  });
+  const q = await json("/api/account/quote", {
+    method: "POST",
+    body: JSON.stringify({ lines: [{ slug: "test-bundle", license: "personal", quantity: 1 }] }),
+  });
+  assert.deepEqual(q.body!.missing, ["test-bundle"]);
+});
+
 /* -------------------------------------------------------------------- teardown */
 
 const close = await getClient();

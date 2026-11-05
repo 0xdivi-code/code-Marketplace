@@ -189,6 +189,48 @@ api.get("/collections", async (c) => {
   });
 });
 
+/** Bundles on sale: their members, and what buying them separately would cost. */
+api.get("/bundles", async (c) => {
+  const db = getDb();
+  const rows = await db.select().from(t.bundles).where(eq(t.bundles.active, true));
+  const members = rows.length
+    ? await db
+        .select({ bundleId: t.bundleItems.bundleId, position: t.bundleItems.position, product: t.products })
+        .from(t.bundleItems)
+        .innerJoin(t.products, eq(t.products.id, t.bundleItems.productId))
+        .where(inArray(t.bundleItems.bundleId, rows.map((b) => b.id)))
+    : [];
+  return c.json({
+    bundles: rows
+      .map((b) => {
+        const items = members
+          .filter((m) => m.bundleId === b.id && m.product.status === "published")
+          .sort((a, z) => a.position - z.position)
+          .map((m) => ({
+            slug: m.product.slug,
+            name: m.product.name,
+            price: m.product.price,
+            tagline: m.product.tagline,
+          }));
+        return {
+          slug: b.slug,
+          name: b.name,
+          tagline: b.tagline,
+          description: b.description,
+          price: b.price,
+          compareAt: b.compareAt,
+          license: b.license,
+          featured: b.featured,
+          art: { from: b.artFrom, to: b.artTo },
+          items,
+          /** what the same products cost when bought one at a time */
+          separateTotal: items.reduce((n, i) => n + i.price, 0),
+        };
+      })
+      .filter((b) => b.items.length > 0),
+  });
+});
+
 /** Pages: policies, FAQ, about — edited in the admin CMS. */
 api.get("/pages", async (c) => {
   const db = getDb();

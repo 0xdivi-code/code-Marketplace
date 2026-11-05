@@ -46,6 +46,8 @@ import AdminPayments from "@/admin/payments";
 import AdminContent from "@/admin/content";
 import AdminBanners from "@/admin/banners";
 import AdminPromotions from "@/admin/promotions";
+import AdminBundles from "@/admin/bundles";
+import BundlesPage from "@/pages/bundles";
 import AdminSettings from "@/admin/settings";
 import AdminActivity from "@/admin/activity";
 
@@ -64,6 +66,7 @@ export default function App() {
         <Route path="/item/:slug" element={<ProductPage />} />
         <Route path="/collections" element={<CollectionsPage />} />
         <Route path="/collection/:slug" element={<CollectionPage />} />
+        <Route path="/bundles" element={<BundlesPage />} />
         <Route path="/free" element={<FreePage />} />
         <Route path="/cart" element={<CartPage />} />
         <Route path="/order/:id" element={<OrderConfirmationPage />} />
@@ -109,6 +112,7 @@ export default function App() {
         <Route path="webhooks" element={<AdminWebhooks />} />
         <Route path="banners" element={<AdminBanners />} />
         <Route path="promotions" element={<AdminPromotions />} />
+        <Route path="bundles" element={<AdminBundles />} />
         <Route path="content" element={<AdminContent />} />
         <Route path="settings" element={<AdminSettings />} />
         <Route path="activity" element={<AdminActivity />} />

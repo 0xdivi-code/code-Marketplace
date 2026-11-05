@@ -31,6 +31,7 @@ import { Avatar } from "@/components/ui/avatar";
 const primary = [
   { label: "Browse", to: "/browse" },
   { label: "Collections", to: "/collections" },
+  { label: "Bundles", to: "/bundles" },
   { label: "Free code", to: "/free" },
   { label: "Journal", to: "/blog" },
 ];

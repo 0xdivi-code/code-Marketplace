@@ -10,13 +10,22 @@ import { getDb } from "../db/client";
 import * as t from "../db/schema";
 import { RANK, type LicenseTier } from "./licensing";
 
+/**
+ * A cart line is either a product slug or a bundle slug. `bundle:` is explicit
+ * so a bundle and a product may share a slug without ambiguity.
+ */
 export type CartLine = { slug: string; license: LicenseTier };
 
 export type PricedLine = {
-  productId: string;
+  /** null for a bundle line, which expands into one licence per member */
+  productId: string | null;
   slug: string;
   name: string;
   license: LicenseTier;
+  /** products granted by this line; one entry for a normal line */
+  grants: { productId: string; slug: string; name: string }[];
+  /** set when the line is a bundle */
+  bundleId?: string | null;
   /** what this line costs after any product-level sale */
   unitPrice: number;
   listPrice: number;
@@ -70,10 +79,32 @@ export async function quote(input: {
   const slugs = [...new Set(input.lines.map((l) => l.slug))];
   if (!slugs.length) return { lines: [], subtotal: 0, discount: 0, total: 0, coupon: null, notices, missing };
 
-  const products = await db
+  /* --------------------------------------------------------------- bundles */
+
+  /**
+   * Bundles are resolved first. A bundle line is priced at the bundle's own
+   * price and grants a licence for every member product, so the rest of the
+   * pipeline (order items, licences, library) needs no special case.
+   */
+  const bundleRows = await db
     .select()
-    .from(t.products)
-    .where(and(inArray(t.products.slug, slugs), eq(t.products.status, "published")));
+    .from(t.bundles)
+    .where(and(inArray(t.bundles.slug, slugs), eq(t.bundles.active, true)));
+  const bundleMembers = bundleRows.length
+    ? await db
+        .select({ bundleId: t.bundleItems.bundleId, product: t.products })
+        .from(t.bundleItems)
+        .innerJoin(t.products, eq(t.products.id, t.bundleItems.productId))
+        .where(inArray(t.bundleItems.bundleId, bundleRows.map((b) => b.id)))
+    : [];
+
+  const productSlugs = slugs.filter((s) => !bundleRows.some((b) => b.slug === s));
+  const products = productSlugs.length
+    ? await db
+        .select()
+        .from(t.products)
+        .where(and(inArray(t.products.slug, productSlugs), eq(t.products.status, "published")))
+    : [];
 
   const tiers = await db
     .select()
@@ -82,6 +113,36 @@ export async function quote(input: {
 
   const priced: PricedLine[] = [];
   for (const raw of input.lines) {
+    const bundle = bundleRows.find((b) => b.slug === raw.slug);
+    if (bundle) {
+      const members = bundleMembers.filter((m) => m.bundleId === bundle.id).map((m) => m.product);
+      if (!members.length) {
+        missing.push(raw.slug);
+        continue;
+      }
+      // Compare against the live shelf price of every member at this tier,
+      // which is exactly what the customer would pay buying them separately.
+      const listPrice = members.reduce((sum, m) => {
+        const overall = effectivePrice(m);
+        const tier = tiers.find((x) => x.productId === m.id && x.license === bundle.license);
+        return sum + (tier ? tier.price : overall.price);
+      }, 0);
+      priced.push({
+        productId: null,
+        bundleId: bundle.id,
+        slug: bundle.slug,
+        name: bundle.name,
+        license: bundle.license as LicenseTier,
+        grants: members.map((m) => ({ productId: m.id, slug: m.slug, name: m.name })),
+        unitPrice: bundle.price,
+        listPrice: Math.max(bundle.compareAt ?? 0, listPrice, bundle.price),
+        saleApplied: (bundle.compareAt ?? listPrice) > bundle.price,
+        discount: 0,
+        free: bundle.price === 0,
+      });
+      continue;
+    }
+
     const product = products.find((p) => p.slug === raw.slug);
     if (!product) {
       missing.push(raw.slug);
@@ -107,9 +168,11 @@ export async function quote(input: {
 
     priced.push({
       productId: product.id,
+      bundleId: null,
       slug: product.slug,
       name: product.name,
       license: raw.license,
+      grants: [{ productId: product.id, slug: product.slug, name: product.name }],
       unitPrice: Math.max(0, Math.round(base)),
       listPrice: Math.max(0, Math.round(list)),
       saleApplied: saleRatio < 1,

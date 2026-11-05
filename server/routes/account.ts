@@ -389,17 +389,28 @@ account.post(
       })
       .returning();
 
+    /**
+     * One order item per granted product. A bundle line fans out into its
+     * members, each carrying its share of the bundle price, so licences,
+     * receipts and refunds all work without knowing bundles exist.
+     */
     await db.insert(t.orderItems).values(
-      q.lines.map((l) => ({
-        orderId: order.id,
-        productId: l.productId,
-        productName: l.name,
-        productSlug: l.slug,
-        license: l.license,
-        unitPrice: l.unitPrice,
-        discount: l.discount,
-        quantity: 1,
-      })),
+      q.lines.flatMap((l) => {
+        const share = l.grants.length ? Math.round(l.unitPrice / l.grants.length) : l.unitPrice;
+        const discountShare = l.grants.length ? Math.round(l.discount / l.grants.length) : l.discount;
+        return l.grants.map((g, i) => ({
+          orderId: order.id,
+          productId: g.productId,
+          bundleId: l.bundleId ?? null,
+          productName: l.bundleId ? `${l.name} — ${g.name}` : l.name,
+          productSlug: g.slug,
+          license: l.license,
+          // Give the remainder to the last member so the parts sum exactly.
+          unitPrice: i === l.grants.length - 1 ? l.unitPrice - share * (l.grants.length - 1) : share,
+          discount: i === l.grants.length - 1 ? l.discount - discountShare * (l.grants.length - 1) : discountShare,
+          quantity: 1,
+        }));
+      }),
     );
 
     const [payment] = await db

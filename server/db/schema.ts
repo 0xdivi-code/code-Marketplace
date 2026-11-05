@@ -335,6 +335,8 @@ export const orderItems = pgTable(
       .notNull()
       .references(() => orders.id, { onDelete: "cascade" }),
     productId: text("product_id").references(() => products.id, { onDelete: "set null" }),
+    /** set when the line was bought as part of a bundle rather than alone */
+    bundleId: text("bundle_id").references(() => bundles.id, { onDelete: "set null" }),
     /** snapshot so history survives a deleted product */
     productName: text("product_name").notNull(),
     productSlug: text("product_slug").notNull(),
@@ -545,6 +547,52 @@ export const coupons = pgTable(
 );
 
 /* ------------------------------------------------------------------ content */
+
+/**
+ * A bundle: several products sold together for less than the sum of their
+ * tiers. Deliberately flat — a bundle has its own price and its own coupon
+ * scope, and buying it grants one licence per member product.
+ */
+export const bundles = pgTable(
+  "bundles",
+  {
+    id: id(),
+    slug: text("slug").notNull(),
+    name: text("name").notNull(),
+    tagline: text("tagline").notNull().default(""),
+    description: text("description").notNull().default(""),
+    /** cents; what the bundle costs */
+    price: integer("price").notNull().default(0),
+    /** cents; the sum of member personal prices, for the struck-through figure */
+    compareAt: integer("compare_at"),
+    /** which licence tier the bundle grants */
+    license: text("license", { enum: ["personal", "commercial", "extended", "developer"] })
+      .notNull()
+      .default("personal"),
+    active: boolean("active").notNull().default(true),
+    featured: boolean("featured").notNull().default(false),
+    artFrom: text("art_from").notNull().default("#17392b"),
+    artTo: text("art_to").notNull().default("#3d7a58"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("bundles_slug_key").on(t.slug)],
+);
+
+export const bundleItems = pgTable(
+  "bundle_items",
+  {
+    id: id(),
+    bundleId: text("bundle_id")
+      .notNull()
+      .references(() => bundles.id, { onDelete: "cascade" }),
+    productId: text("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    position: integer("position").notNull().default(0),
+  },
+  (t) => [uniqueIndex("bundle_items_unique").on(t.bundleId, t.productId)],
+);
 
 export const collections = pgTable(
   "collections",

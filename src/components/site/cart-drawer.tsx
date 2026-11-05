@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Plus, Minus, Trash2, Tag, ShieldCheck, ArrowRight, ShoppingBag } from "lucide-react";
+import { X, Plus, Minus, Trash2, Tag, ShieldCheck, ArrowRight, ShoppingBag, Layers } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ProductArt } from "@/components/ui/product-art";
@@ -55,59 +55,73 @@ export function CartDrawer() {
           <>
             <div className="flex-1 overflow-y-auto px-5">
               <ul className="divide-y divide-line">
-                {items.map(({ product, tier }) => (
+                {items.map(({ product, bundle, tier, price, line }) => (
                   <motion.li
-                    key={product.slug}
+                    key={line.productSlug}
                     layout
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, height: 0 }}
                     className="flex gap-3 py-4"
                   >
-                    <Link to={`/item/${product.slug}`} onClick={() => setCart(false)}>
-                      <ProductArt
-                        from={product.art.from}
-                        to={product.art.to}
-                        ink={product.art.ink}
-                        kind={product.art.kind}
-                        className="h-16 w-20 shrink-0 rounded-sm"
-                      />
-                    </Link>
-                    <div className="min-w-0 flex-1">
-                      <Link
-                        to={`/item/${product.slug}`}
-                        onClick={() => setCart(false)}
-                        className="line-clamp-2 text-[0.8125rem] font-medium leading-snug hover:text-accent-ink dark:hover:text-accent"
-                      >
-                        {product.name}
+                    {product ? (
+                      <Link to={`/item/${product.slug}`} onClick={() => setCart(false)}>
+                        <ProductArt
+                          from={product.art.from}
+                          to={product.art.to}
+                          ink={product.art.ink}
+                          kind={product.art.kind}
+                          className="h-16 w-20 shrink-0 rounded-sm"
+                        />
                       </Link>
-                      <div className="mt-1.5 flex items-center gap-2">
-                        <NativeSelect
-                          aria-label="License"
-                          value={tier?.license}
-                          onChange={(e) => setLicense(product.slug, e.target.value as never)}
-                          className="h-7 w-auto py-0 pl-2 pr-7 text-[0.6875rem]"
+                    ) : (
+                      <div className="grid h-16 w-20 shrink-0 place-items-center rounded-sm bg-surface-2 text-ink-3">
+                        <Layers className="size-5" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      {product ? (
+                        <Link
+                          to={`/item/${product.slug}`}
+                          onClick={() => setCart(false)}
+                          className="line-clamp-2 text-[0.8125rem] font-medium leading-snug hover:text-accent-ink dark:hover:text-accent"
                         >
-                          {product.tiers.map((t) => (
-                            <option key={t.license} value={t.license}>
-                              {t.name} — {money(t.price)}
-                            </option>
-                          ))}
-                        </NativeSelect>
+                          {product.name}
+                        </Link>
+                      ) : (
+                        <p className="line-clamp-2 text-[0.8125rem] font-medium leading-snug">
+                          {bundle?.name ?? line.productSlug}
+                        </p>
+                      )}
+                      <div className="mt-1.5 flex items-center gap-2">
+                        {product && (
+                          <NativeSelect
+                            aria-label="License"
+                            value={tier?.license}
+                            onChange={(e) => setLicense(product.slug, e.target.value as never)}
+                            className="h-7 w-auto py-0 pl-2 pr-7 text-[0.6875rem]"
+                          >
+                            {product.tiers.map((t) => (
+                              <option key={t.license} value={t.license}>
+                                {t.name} — {money(t.price)}
+                              </option>
+                            ))}
+                          </NativeSelect>
+                        )}
                         <button
-                          onClick={() => remove(product.slug)}
+                          onClick={() => remove(line.productSlug)}
                           className="ml-auto grid size-6 place-items-center rounded text-ink-3 transition-colors hover:bg-surface-2 hover:text-red-600"
-                          aria-label={`Remove ${product.name}`}
+                          aria-label={`Remove ${product?.name ?? bundle?.name ?? "item"}`}
                         >
                           <Trash2 className="size-3.5" />
                         </button>
                       </div>
                       <p className="mt-1.5 font-mono text-[0.6875rem] text-ink-3">
-                        {product.version} · {product.license} license
+                        {product ? `${product.version} · ${product.license} license` : `Bundle · ${bundle?.license ?? "personal"} licence`}
                       </p>
                     </div>
                     <div className="shrink-0 text-right font-mono text-[0.8125rem] font-medium">
-                      {money(tier?.price ?? 0)}
+                      {money(price)}
                     </div>
                   </motion.li>
                 ))}

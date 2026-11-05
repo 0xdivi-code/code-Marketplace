@@ -13,6 +13,7 @@ const groups = [
       { label: "New releases", to: "/browse?sort=newest" },
       { label: "Free code", to: "/free" },
       { label: "Collections", to: "/collections" },
+              { label: "Bundles", to: "/bundles" },
       { label: "Changelog", to: "/changelog" },
     ],
   },

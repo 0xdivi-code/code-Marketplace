@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, ShieldCheck, ShoppingBag, Tag, Trash2, X } from "lucide-react";
+import { ArrowRight, Layers, ShieldCheck, ShoppingBag, Tag, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProductArt } from "@/components/ui/product-art";
 import { NativeSelect } from "@/components/ui/field";
-import { useCart, useCartTotals, validateCoupon } from "@/lib/store";
+import { hydrateBundles, useCart, useCartTotals, validateCoupon } from "@/lib/store";
 import { money } from "@/lib/utils";
 import * as React from "react";
 
@@ -12,6 +12,19 @@ export default function CartPage() {
   const { remove, setLicense, applyCoupon, removeCoupon } = useCart();
   const [code, setCode] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
+  const [hydrating, setHydrating] = React.useState(true);
+
+  // A cart holding a bundle needs the bundle's name and price, which live on
+  // the server. Without this a full page load renders an empty cart.
+  React.useEffect(() => {
+    void hydrateBundles().finally(() => setHydrating(false));
+  }, []);
+
+  if (count === 0 && hydrating) {
+    return (
+      <div className="container-x py-24 text-center text-sm text-ink-3">Loading your cart…</div>
+    );
+  }
 
   if (count === 0) {
     return (
@@ -47,51 +60,68 @@ export default function CartPage() {
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px]">
         <div>
           <ul className="divide-y divide-line border-y border-line">
-            {items.map(({ product, tier }) => (
-              <li key={product.slug} className="flex gap-4 py-5">
-                <Link to={`/item/${product.slug}`} className="shrink-0">
-                  <ProductArt
-                    {...product.art}
-                    kind={product.art.kind}
-                    className="h-20 w-28 rounded-sm"
-                  />
-                </Link>
+            {items.map(({ product, bundle, tier, price, line }) => (
+              <li key={line.productSlug} className="flex gap-4 py-5">
+                {product ? (
+                  <Link to={`/item/${product.slug}`} className="shrink-0">
+                    <ProductArt {...product.art} kind={product.art.kind} className="h-20 w-28 rounded-sm" />
+                  </Link>
+                ) : (
+                  <div className="grid h-20 w-28 shrink-0 place-items-center rounded-sm bg-surface-2 text-ink-3">
+                    <Layers className="size-6" />
+                  </div>
+                )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <Link
-                        to={`/item/${product.slug}`}
-                        className="font-display text-[1.05rem] leading-snug hover:text-accent-ink dark:hover:text-accent"
-                      >
-                        {product.name}
-                      </Link>
-                      <p className="mt-0.5 text-[0.75rem] text-ink-2">{product.tagline}</p>
+                      {product ? (
+                        <>
+                          <Link
+                            to={`/item/${product.slug}`}
+                            className="font-display text-[1.05rem] leading-snug hover:text-accent-ink dark:hover:text-accent"
+                          >
+                            {product.name}
+                          </Link>
+                          <p className="mt-0.5 text-[0.75rem] text-ink-2">{product.tagline}</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-display text-[1.05rem] leading-snug">
+                            {bundle?.name ?? line.productSlug}
+                          </p>
+                          <p className="mt-0.5 text-[0.75rem] text-ink-2">
+                            Bundle · {bundle?.license ?? "personal"} licence on every product
+                          </p>
+                        </>
+                      )}
                     </div>
                     <div className="shrink-0 text-right font-mono text-[0.9375rem] font-medium">
-                      {money(tier.price)}
+                      {money(price)}
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <NativeSelect
-                      aria-label={`License for ${product.name}`}
-                      value={tier.license}
-                      onChange={(e) => setLicense(product.slug, e.target.value as never)}
-                      className="h-8 w-auto py-0 pl-2 pr-7 text-[0.6875rem]"
-                    >
-                      {product.tiers.map((t) => (
-                        <option key={t.license} value={t.license}>
-                          {t.name} license — {money(t.price)}
-                        </option>
-                      ))}
-                    </NativeSelect>
+                    {product && tier && (
+                      <NativeSelect
+                        aria-label={`License for ${product.name}`}
+                        value={tier.license}
+                        onChange={(e) => setLicense(product.slug, e.target.value as never)}
+                        className="h-8 w-auto py-0 pl-2 pr-7 text-[0.6875rem]"
+                      >
+                        {product.tiers.map((t) => (
+                          <option key={t.license} value={t.license}>
+                            {t.name} license — {money(t.price)}
+                          </option>
+                        ))}
+                      </NativeSelect>
+                    )}
                     <button
-                      onClick={() => remove(product.slug)}
+                      onClick={() => remove(line.productSlug)}
                       className="flex items-center gap-1 text-[0.6875rem] text-ink-3 transition-colors hover:text-red-600"
                     >
                       <Trash2 className="size-3" /> Remove
                     </button>
                     <span className="ml-auto text-[0.625rem] text-ink-3">
-                      {product.version} · lifetime updates
+                      {product ? `${product.version} · lifetime updates` : "All member products · lifetime updates"}
                     </span>
                   </div>
                 </div>

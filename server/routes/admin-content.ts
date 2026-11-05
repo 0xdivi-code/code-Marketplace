@@ -1016,4 +1016,157 @@ adminApi.get("/search", async (c) => {
   return c.json({ products, orders, customers });
 });
 
+/* ---------------------------------------------------------------- bundles */
+
+/** Bundles with their members resolved, for the admin screen. */
+adminApi.get("/bundles", async (c) => {
+  const db = getDb();
+  const [rows, members] = await Promise.all([
+    db.select().from(t.bundles).orderBy(desc(t.bundles.createdAt)),
+    db
+      .select({ bundleId: t.bundleItems.bundleId, position: t.bundleItems.position, product: t.products })
+      .from(t.bundleItems)
+      .innerJoin(t.products, eq(t.products.id, t.bundleItems.productId)),
+  ]);
+  return c.json({
+    bundles: rows.map((b) => {
+      const items = members
+        .filter((m) => m.bundleId === b.id)
+        .sort((a, z) => a.position - z.position)
+        .map((m) => ({ slug: m.product.slug, name: m.product.name, price: m.product.price }));
+      return {
+        ...b,
+        items,
+        separateTotal: items.reduce((n, i) => n + i.price, 0),
+      };
+    }),
+  });
+});
+
+const bundleInput = z.object({
+  slug: z.string().trim().min(2).max(120),
+  name: z.string().trim().min(2).max(160),
+  tagline: z.string().max(240).optional(),
+  description: z.string().max(4000).optional(),
+  /** dollars, converted to cents here */
+  price: z.number().min(0).max(100_000),
+  license: z.enum(["personal", "commercial", "extended", "developer"]).optional(),
+  active: z.boolean().optional(),
+  featured: z.boolean().optional(),
+  /** product slugs, in display order */
+  products: z.array(z.string().trim().min(1)).min(1).max(24),
+});
+
+/** Resolve product slugs to ids, or report which ones do not exist. */
+async function resolveBundleProducts(slugs: string[]) {
+  const db = getDb();
+  const rows = await db
+    .select({ id: t.products.id, slug: t.products.slug })
+    .from(t.products)
+    .where(inArray(t.products.slug, [...new Set(slugs)]));
+  const missing = slugs.filter((s) => !rows.some((r) => r.slug === s));
+  return { rows, missing };
+}
+
+adminApi.post("/bundles", zValidator("json", bundleInput), async (c) => {
+  const db = getDb();
+  const input = c.req.valid("json");
+  const { rows, missing } = await resolveBundleProducts(input.products);
+  if (missing.length) return c.json({ error: `Unknown product: ${missing.join(", ")}` }, 400);
+
+  // A "bundle" that costs more than its parts is a pricing mistake, not an
+  // offer. Refuse it rather than putting a strange number in front of buyers.
+  const prices = await db
+    .select({ id: t.products.id, price: t.products.price })
+    .from(t.products)
+    .where(inArray(t.products.id, rows.map((r) => r.id)));
+  const separate = prices.reduce((n, p) => n + p.price, 0);
+  if (Math.round(input.price * 100) > separate) {
+    return c.json(
+      { error: `The bundle price is above the ${(separate / 100).toFixed(2)} the products cost separately.` },
+      400,
+    );
+  }
+
+  const [bundle] = await db
+    .insert(t.bundles)
+    .values({
+      slug: slugify(input.slug),
+      name: input.name,
+      tagline: input.tagline ?? "",
+      description: input.description ?? "",
+      price: Math.round(input.price * 100),
+      license: input.license ?? "personal",
+      active: input.active ?? true,
+      featured: input.featured ?? false,
+    })
+    .returning();
+
+  await db.insert(t.bundleItems).values(
+    input.products.map((slug, i) => ({
+      bundleId: bundle.id,
+      productId: rows.find((r) => r.slug === slug)!.id,
+      position: i,
+    })),
+  );
+
+  await audit(c, { action: `created the bundle ${bundle.name}`, target: bundle.slug, kind: "promo" });
+  return c.json({ ok: true, bundle }, 201);
+});
+
+adminApi.patch("/bundles/:slug", zValidator("json", bundleInput.partial()), async (c) => {
+  const db = getDb();
+  const input = c.req.valid("json");
+  const slug = c.req.param("slug");
+  const [existing] = await db.select().from(t.bundles).where(eq(t.bundles.slug, slug)).limit(1);
+  if (!existing) return c.json({ error: "Bundle not found" }, 404);
+
+  let resolved: { id: string; slug: string }[] = [];
+  if (input.products) {
+    const found = await resolveBundleProducts(input.products);
+    if (found.missing.length) return c.json({ error: `Unknown product: ${found.missing.join(", ")}` }, 400);
+    resolved = found.rows;
+  }
+
+  const [bundle] = await db
+    .update(t.bundles)
+    .set({
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.tagline !== undefined ? { tagline: input.tagline } : {}),
+      ...(input.description !== undefined ? { description: input.description } : {}),
+      ...(input.price !== undefined ? { price: Math.round(input.price * 100) } : {}),
+      ...(input.license !== undefined ? { license: input.license } : {}),
+      ...(input.active !== undefined ? { active: input.active } : {}),
+      ...(input.featured !== undefined ? { featured: input.featured } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(t.bundles.id, existing.id))
+    .returning();
+
+  if (input.products && resolved.length) {
+    await db.delete(t.bundleItems).where(eq(t.bundleItems.bundleId, existing.id));
+    await db.insert(t.bundleItems).values(
+      input.products.map((s, i) => ({
+        bundleId: existing.id,
+        productId: resolved.find((r) => r.slug === s)!.id,
+        position: i,
+      })),
+    );
+  }
+
+  await audit(c, { action: `updated the bundle ${bundle.name}`, target: bundle.slug, kind: "promo" });
+  return c.json({ ok: true, bundle });
+});
+
+adminApi.delete("/bundles/:slug", async (c) => {
+  const db = getDb();
+  const [row] = await db
+    .delete(t.bundles)
+    .where(eq(t.bundles.slug, c.req.param("slug")))
+    .returning();
+  if (!row) return c.json({ error: "Bundle not found" }, 404);
+  await audit(c, { action: `deleted the bundle ${row.name}`, target: row.slug, kind: "promo" });
+  return c.json({ ok: true });
+});
+
 export { adminApi as adminContentApi };

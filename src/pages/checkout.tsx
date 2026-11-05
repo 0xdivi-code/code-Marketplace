@@ -14,13 +14,14 @@ import {
   Triangle,
   Zap,
   FileText,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KilnMark } from "@/components/site/logo";
 import { Field, Input, NativeSelect, Checkbox, RadioGroup, RadioCard } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { ProductArt } from "@/components/ui/product-art";
-import { useCart, useCartTotals, useSession } from "@/lib/store";
+import { hydrateBundles, useCart, useCartTotals, useSession } from "@/lib/store";
 import { cn, money } from "@/lib/utils";
 import { toast } from "sonner";
 import { api, ApiError, refreshAuth } from "@/lib/api";
@@ -108,8 +109,21 @@ export default function CheckoutPage() {
    */
   const [hydrated, setHydrated] = React.useState(false);
   React.useEffect(() => {
-    const id = window.setTimeout(() => setHydrated(true), 400);
-    return () => window.clearTimeout(id);
+    /**
+     * Wait for the bundle cache as well as the cart store: a cart made only of
+     * bundles renders zero lines until /api/bundles has answered, and the
+     * empty-cart guard below would bounce the customer to /cart.
+     */
+    let alive = true;
+    const timer = window.setTimeout(() => alive && setHydrated(true), 2500);
+    void hydrateBundles().finally(() => {
+      window.clearTimeout(timer);
+      if (alive) setHydrated(true);
+    });
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
   }, []);
 
   React.useEffect(() => {
@@ -153,7 +167,8 @@ export default function CheckoutPage() {
           invoiceUrl: string;
         } | null;
       }>("/account/checkout", {
-        lines: items.map((i) => ({ slug: i.product.slug, license: i.line.license })),
+        // Bundles are sent by their own slug; the server expands and prices them.
+        lines: items.map((i) => ({ slug: i.line.productSlug, license: i.line.license })),
         coupon: coupon ?? undefined,
         country: form.country,
         vatNumber: form.vat || undefined,
@@ -442,10 +457,11 @@ export default function CheckoutPage() {
                   <div className="p-4">
                     <p className="label-mono text-[0.5rem] text-ink-3">Items</p>
                     <ul className="mt-2 space-y-2">
-                      {items.map(({ product, tier, price, listPrice }) => (
-                        <li key={product.slug} className="flex items-baseline justify-between gap-3 text-[0.8125rem]">
+                      {items.map(({ product, bundle, tier, price, listPrice, line }) => (
+                        <li key={line.productSlug} className="flex items-baseline justify-between gap-3 text-[0.8125rem]">
                           <span className="min-w-0 flex-1 truncate text-ink-2">
-                            {product.name} <span className="text-ink-3">· {tier.name}</span>
+                            {product?.name ?? bundle?.name ?? line.productSlug}{" "}
+                            <span className="text-ink-3">· {tier?.name ?? "Bundle"}</span>
                           </span>
                           <span className="flex items-baseline gap-1.5 font-mono text-[0.75rem]">
                             {listPrice > price && (
@@ -558,13 +574,21 @@ export default function CheckoutPage() {
           <div className="sticky top-24 rounded-lg border border-line bg-surface p-5">
             <h2 className="font-display text-lg">Summary</h2>
             <ul className="mt-3 space-y-3">
-              {items.map(({ product, tier, price, listPrice }) => (
-                <li key={product.slug} className="flex items-center gap-3">
-                  <ProductArt {...product.art} kind={product.art.kind} className="size-11 shrink-0 rounded-sm" />
+              {items.map(({ product, bundle, tier, price, listPrice, line }) => (
+                <li key={line.productSlug} className="flex items-center gap-3">
+                  {product ? (
+                    <ProductArt {...product.art} kind={product.art.kind} className="size-11 shrink-0 rounded-sm" />
+                  ) : (
+                    <div className="grid size-11 shrink-0 place-items-center rounded-sm bg-surface-2 text-ink-3">
+                      <Layers className="size-4" />
+                    </div>
+                  )}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[0.75rem] font-medium">{product.name}</p>
+                    <p className="truncate text-[0.75rem] font-medium">
+                      {product?.name ?? bundle?.name ?? line.productSlug}
+                    </p>
                     <p className="text-[0.625rem] text-ink-3">
-                      {tier.name} license
+                      {tier?.name ?? "Bundle"} license
                       {listPrice > price ? " · on sale" : ""}
                     </p>
                   </div>

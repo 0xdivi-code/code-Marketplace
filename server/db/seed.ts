@@ -541,6 +541,40 @@ export async function seed({ log = true, force = false }: { log?: boolean; force
     kind: "settings",
   });
 
+  // A starter bundle, so the storefront, checkout and the admin screen all
+  // have real data to work with on a fresh install.
+  const starterSlugs = ["lattice-admin", "relay-api", "gatehouse-auth"];
+  const starterProducts = await db
+    .select({ id: t.products.id, slug: t.products.slug, price: t.products.price })
+    .from(t.products);
+  const picked = starterSlugs
+    .map((slug) => starterProducts.find((p) => p.slug === slug))
+    .filter((p): p is { id: string; slug: string; price: number } => Boolean(p));
+  if (picked.length && !(await db.select().from(t.bundles).limit(1)).length) {
+    const separate = picked.reduce((n, p) => n + p.price, 0);
+    const [bundle] = await db
+      .insert(t.bundles)
+      .values({
+        slug: "full-stack-launch",
+        name: "Full-stack Launch Kit",
+        tagline: "Admin console, API and auth — the whole back office in one buy.",
+        description:
+          "Three products that are designed to run together: a data-dense admin console, a typed API layer and passwordless authentication. Buy them as a set and save against the individual prices.",
+        // 35% off, rounded to the nearest dollar.
+        price: Math.round((separate * 0.65) / 100) * 100,
+        compareAt: separate,
+        license: "personal",
+        featured: true,
+        artFrom: "#1d2b3a",
+        artTo: "#3f6b8f",
+      })
+      .returning();
+    await db.insert(t.bundleItems).values(
+      picked.map((p, i) => ({ bundleId: bundle.id, productId: p.id, position: i })),
+    );
+    say("starter bundle");
+  }
+
   say("content, homepage sections and settings");
   await seedDeveloperTiers(log);
   await seedSourceArchives(log);
