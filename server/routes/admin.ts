@@ -66,6 +66,11 @@ adminApi.get("/overview", async (c) => {
         .limit(5),
     ]);
 
+  const [categoryCount, activeCoupons] = await Promise.all([
+    db.select({ n: sql<number>`count(*)::int` }).from(t.categories),
+    db.select({ n: sql<number>`count(*)::int` }).from(t.coupons).where(eq(t.coupons.active, true)),
+  ]);
+
   const monthly = await db.execute<{ month: string; total: number }>(sql`
     select to_char(date_trunc('month', created_at), 'YYYY-MM') as month,
            coalesce(sum(total), 0)::int as total
@@ -88,6 +93,8 @@ adminApi.get("/overview", async (c) => {
     orders: orderCount[0].n,
     customers: customerCount[0].n,
     products: productCount[0].n,
+    categories: categoryCount[0].n,
+    activeCoupons: activeCoupons[0].n,
     downloads: downloads[0].n,
     pendingReviews: pendingReviews[0].n,
     recentOrders: recentOrders.map((o) => ({ ...o, createdAt: o.createdAt })),

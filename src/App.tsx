@@ -39,6 +39,7 @@ import AdminCategories from "@/admin/categories";
 import AdminOrders from "@/admin/orders";
 import AdminOrderDetail from "@/admin/order-detail";
 import AdminCustomers from "@/admin/customers";
+import AdminReviews from "@/admin/reviews";
 import AdminPayments from "@/admin/payments";
 import AdminContent from "@/admin/content";
 import AdminBanners from "@/admin/banners";
@@ -100,6 +101,7 @@ export default function App() {
         <Route path="orders" element={<AdminOrders />} />
         <Route path="orders/:id" element={<AdminOrderDetail />} />
         <Route path="customers" element={<AdminCustomers />} />
+        <Route path="reviews" element={<AdminReviews />} />
         <Route path="payments" element={<AdminPayments />} />
         <Route path="banners" element={<AdminBanners />} />
         <Route path="promotions" element={<AdminPromotions />} />

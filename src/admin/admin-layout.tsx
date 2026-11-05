@@ -25,6 +25,7 @@ import {
   Plus,
   Command,
   Loader2,
+  Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/store";
@@ -40,6 +41,7 @@ type NavItem = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   end?: boolean;
+  /** A key into the live overview counters, not a frozen number. */
   badge?: string;
 };
 
@@ -51,17 +53,18 @@ const groups: { label: string; items: NavItem[] }[] = [
   {
     label: "Catalogue",
     items: [
-      { to: "/admin/products", label: "Products", icon: Package, badge: "16" },
-      { to: "/admin/categories", label: "Categories", icon: FolderTree, badge: "8" },
+      { to: "/admin/products", label: "Products", icon: Package, badge: "products" },
+      { to: "/admin/categories", label: "Categories", icon: FolderTree, badge: "categories" },
     ],
   },
   {
     label: "Commerce",
     items: [
-      { to: "/admin/orders", label: "Orders", icon: ShoppingCart, badge: "6" },
+      { to: "/admin/orders", label: "Orders", icon: ShoppingCart, badge: "orders" },
       { to: "/admin/customers", label: "Customers", icon: Users },
       { to: "/admin/payments", label: "Payments", icon: CreditCard },
-      { to: "/admin/promotions", label: "Promotions", icon: Ticket, badge: "2" },
+      { to: "/admin/promotions", label: "Promotions", icon: Ticket, badge: "coupons" },
+      { to: "/admin/reviews", label: "Reviews", icon: Star, badge: "pendingReviews" },
     ],
   },
   {
@@ -88,6 +91,29 @@ const groups: { label: string; items: NavItem[] }[] = [
  */
 export function AdminLayout() {
   const auth = useAuth();
+  const [counts, setCounts] = React.useState<Record<string, number>>({});
+
+  // Sidebar counters come from the same overview endpoint the dashboard uses.
+  React.useEffect(() => {
+    if (!auth.admin) return;
+    let alive = true;
+    fetch("/api/admin/overview", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!alive || !data) return;
+        setCounts({
+          products: data.catalogue,
+          categories: data.categories,
+          orders: data.orders,
+          coupons: data.activeCoupons,
+          pendingReviews: data.pendingReviews,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [auth.admin]);
 
   if (auth.loading) {
     return (
@@ -103,10 +129,10 @@ export function AdminLayout() {
     return <AdminLogin />;
   }
 
-  return <AdminShell />;
+  return <AdminShell counts={counts} />;
 }
 
-function AdminShell() {
+function AdminShell({ counts }: { counts: Record<string, number> }) {
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [searchOpen, setSearchOpen] = React.useState(false);
@@ -205,8 +231,8 @@ function AdminShell() {
                             )}
                           />
                           {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
-                          {!collapsed && item.badge && (
-                            <span className="font-mono text-[0.5625rem] text-ink-3">{item.badge}</span>
+                          {!collapsed && item.badge && counts[item.badge] != null && (
+                            <span className="font-mono text-[0.5625rem] text-ink-3">{counts[item.badge]}</span>
                           )}
                         </>
                       )}
