@@ -461,6 +461,7 @@ export function StatusBadge({ status }: { status: string }) {
     revoked: { variant: "danger", label: "Revoked" },
     active: { variant: "success", label: "Active" },
     invited: { variant: "accent", label: "Invited" },
+    suspended: { variant: "danger", label: "Suspended" },
     blocked: { variant: "danger", label: "Blocked" },
     scheduled: { variant: "accent", label: "Scheduled" },
     expired: { variant: "neutral", label: "Expired" },

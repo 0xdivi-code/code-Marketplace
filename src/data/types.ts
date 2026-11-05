@@ -147,7 +147,7 @@ export interface Customer {
   orders: number;
   spent: number;
   joined: string;
-  status: "active" | "invited" | "blocked";
+  status: "active" | "invited" | "suspended";
   country: string;
 }
 

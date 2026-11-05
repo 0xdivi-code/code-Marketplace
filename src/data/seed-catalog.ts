@@ -1296,7 +1296,7 @@ export const seedCustomers: Customer[] = [
   { id: "c11", name: "Kwame Mensah", email: "kwame@mensah.app", initials: "KM", orders: 1, spent: 9900, joined: "2026-10-12", status: "active", country: "Ghana" },
   { id: "c12", name: "Hannah Cole", email: "hannah@cole.finance", initials: "HC", orders: 2, spent: 33800, joined: "2026-05-30", status: "active", country: "United Kingdom" },
   { id: "c13", name: "Ola Nordmann", email: "ola@nordmann.no", initials: "ON", orders: 0, spent: 0, joined: "2026-10-28", status: "invited", country: "Norway" },
-  { id: "c14", name: "Gabriel Silva", email: "gabriel@silva.br", initials: "GS", orders: 1, spent: 7900, joined: "2026-07-16", status: "blocked", country: "Brazil" },
+  { id: "c14", name: "Gabriel Silva", email: "gabriel@silva.br", initials: "GS", orders: 1, spent: 7900, joined: "2026-07-16", status: "suspended", country: "Brazil" },
 ]
 
 export const seedOrders: Order[] = [
