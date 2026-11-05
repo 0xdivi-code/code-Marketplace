@@ -6,12 +6,28 @@ import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
-import { customers, orders, productBySlug } from "@/data/catalog";
-import type { Order } from "@/data/types";
 import { money } from "@/lib/utils";
 import { toast } from "sonner";
+import { api, ApiError } from "@/lib/api";
 
-const PER_PAGE = 6;
+const PER_PAGE = 8;
+
+/**
+ * Row shape from `GET /api/admin/orders`. Admin rows carry the customer's
+ * identity and the raw status, which the storefront `Order` type never needs.
+ */
+interface AdminOrder {
+  id: string;
+  number: string;
+  date: string;
+  status: "completed" | "refunded" | "pending";
+  statusRaw: "pending" | "paid" | "refunded" | "cancelled";
+  total: number;
+  payment: string;
+  email: string;
+  name: string;
+  items: { productSlug: string; productName: string; license: string; unitPrice: number }[];
+}
 
 export default function AdminOrders() {
   const navigate = useNavigate();
@@ -19,11 +35,39 @@ export default function AdminOrders() {
   const [status, setStatus] = React.useState("all");
   const [page, setPage] = React.useState(1);
   const [selected, setSelected] = React.useState<string[]>([]);
+  const [orders, setOrders] = React.useState<AdminOrder[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  const load = React.useCallback(async () => {
+    try {
+      const res = await api.get<{ orders: AdminOrder[] }>("/admin/orders");
+      setOrders(res.orders);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not load orders.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    void load();
+  }, [load]);
+
+  const refund = async (o: AdminOrder) => {
+    if (!window.confirm(`Refund ${o.number} for ${money(o.total, { free: false })}? Their licence is revoked.`)) return;
+    try {
+      await api.patch(`/admin/orders/${o.number}`, { status: "refunded" });
+      toast.success(`Refunded ${o.number}`, { description: "Licence revoked and payment reversed." });
+      await load();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Refund failed.");
+    }
+  };
 
   const filtered = orders.filter((o) => {
     if (status !== "all" && o.status !== status) return false;
     if (query) {
-      const hay = `${o.id} ${o.payment} ${o.items.map((i) => productBySlug(i.productSlug)?.name).join(" ")}`;
+      const hay = `${o.number} ${o.email} ${o.name} ${o.items.map((i) => i.productName).join(" ")}`;
       if (!hay.toLowerCase().includes(query.toLowerCase())) return false;
     }
     return true;
@@ -31,7 +75,7 @@ export default function AdminOrders() {
   const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const rows = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-  const columns: Column<Order>[] = [
+  const columns: Column<AdminOrder>[] = [
     {
       key: "id",
       header: "Order",
@@ -49,13 +93,18 @@ export default function AdminOrders() {
       key: "customer",
       header: "Customer",
       render: (o) => {
-        const c = customers[orders.indexOf(o)] ?? customers[0];  // empty until the API hydrates
+        const initials = o.name
+          .split(" ")
+          .map((w) => w[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase();
         return (
           <div className="flex items-center gap-2">
-            <Avatar initials={c.initials} size="sm" />
+            <Avatar initials={initials || "??"} size="sm" />
             <div className="min-w-0">
-              <p className="max-w-[150px] truncate text-[0.75rem] text-ink">{c.name}</p>
-              <p className="max-w-[150px] truncate text-[0.5625rem] text-ink-3">{c.email}</p>
+              <p className="max-w-[150px] truncate text-[0.75rem] text-ink">{o.name}</p>
+              <p className="max-w-[150px] truncate text-[0.5625rem] text-ink-3">{o.email}</p>
             </div>
           </div>
         );
@@ -66,9 +115,7 @@ export default function AdminOrders() {
       header: "Items",
       render: (o) => (
         <div className="max-w-[220px]">
-          <p className="truncate text-[0.6875rem] text-ink-2">
-            {productBySlug(o.items[0].productSlug)?.name}
-          </p>
+          <p className="truncate text-[0.6875rem] text-ink-2">{o.items[0]?.productName}</p>
           {o.items.length > 1 && (
             <p className="text-[0.5625rem] text-ink-3">+{o.items.length - 1} more</p>
           )}
@@ -101,31 +148,48 @@ export default function AdminOrders() {
       render: (o) => (
         <RowActions
           items={[
-            { label: "View order", onClick: () => navigate(`/admin/orders/${o.id}`) },
-            { label: "Resend receipt", onClick: () => toast.success("Receipt re-sent") },
-            { label: "Mark fulfilled", onClick: () => toast.success("Marked fulfilled") },
-            { label: "Refund order", danger: true, onClick: () => toast.success("Refund initiated") },
+            { label: "View order", onClick: () => navigate(`/admin/orders/${o.number}`) },
+            {
+              label: "Copy customer email",
+              onClick: () => {
+                void navigator.clipboard?.writeText(o.email);
+                toast.success("Email copied");
+              },
+            },
+            {
+              label: "Refund order",
+              danger: true,
+              disabled: o.statusRaw === "refunded",
+              onClick: () => void refund(o),
+            },
           ]}
         />
       ),
     },
   ];
 
-  const total = orders.reduce((n, o) => n + o.total, 0);
-  const refunded = orders.filter((o) => o.status === "refunded").reduce((n, o) => n + o.total, 0);
+  const paid = orders.filter((o) => o.statusRaw === "paid");
+  const total = paid.reduce((n, o) => n + o.total, 0);
+  const refunded = orders.filter((o) => o.statusRaw === "refunded").reduce((n, o) => n + o.total, 0);
 
   return (
     <div>
       <PageHeader
         title="Orders"
-        subtitle={`${orders.length} orders · ${money(total, { free: false })} gross · ${money(refunded, { free: false })} refunded`}
+        subtitle={
+          loading
+            ? "Loading orders…"
+            : `${orders.length} orders · ${money(total, { free: false })} net · ${money(refunded, { free: false })} refunded`
+        }
         actions={
           <>
-            <Button variant="outline" size="xs" className="h-8">
-              Export CSV
+            <Button variant="outline" size="xs" className="h-8" asChild>
+              <a href="/api/admin/export/orders" download>
+                Export CSV
+              </a>
             </Button>
-            <Button variant="outline" size="xs" className="h-8">
-              Print packing slips
+            <Button variant="outline" size="xs" className="h-8" onClick={() => window.print()}>
+              Print
             </Button>
           </>
         }
@@ -133,10 +197,10 @@ export default function AdminOrders() {
 
       <div className="mb-3 grid gap-3 sm:grid-cols-4">
         {[
-          { l: "Awaiting payment", v: "0", tone: "neutral" },
-          { l: "To deliver", v: "2", tone: "accent" },
-          { l: "Completed", v: "4", tone: "success" },
-          { l: "Refund requests", v: "1", tone: "warn" },
+          { l: "Pending", v: String(orders.filter((o) => o.statusRaw === "pending").length), tone: "neutral" },
+          { l: "Cancelled", v: String(orders.filter((o) => o.statusRaw === "cancelled").length), tone: "accent" },
+          { l: "Paid", v: String(paid.length), tone: "success" },
+          { l: "Refunded", v: String(orders.length - paid.length - orders.filter((o) => o.statusRaw === "pending" || o.statusRaw === "cancelled").length), tone: "warn" },
         ].map((s) => (
           <div key={s.l} className="flex items-center justify-between rounded-lg border border-line bg-surface px-3.5 py-2.5">
             <span className="text-[0.6875rem] text-ink-2">{s.l}</span>
@@ -157,7 +221,7 @@ export default function AdminOrders() {
         selectable
         selected={selected}
         onSelectedChange={setSelected}
-        onRowClick={(o) => navigate(`/admin/orders/${o.id}`)}
+        onRowClick={(o) => navigate(`/admin/orders/${o.number}`)}
         toolbar={
           <>
             <TableToolbar query={query} onQuery={setQuery} placeholder="Search orders" />

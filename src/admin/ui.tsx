@@ -365,7 +365,11 @@ export function TableFooter({
   );
 }
 
-export function RowActions({ items }: { items: { label: string; onClick?: () => void; danger?: boolean }[] }) {
+export function RowActions({
+  items,
+}: {
+  items: { label: string; onClick?: () => void; danger?: boolean; disabled?: boolean }[];
+}) {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
@@ -388,9 +392,11 @@ export function RowActions({ items }: { items: { label: string; onClick?: () => 
             <DropdownMenu.Item
               key={i.label}
               onSelect={i.onClick}
+              disabled={i.disabled}
               className={cn(
                 "cursor-pointer rounded-sm px-2 py-1.5 text-[0.75rem] outline-none hover:bg-surface-2",
                 i.danger ? "text-red-600 dark:text-red-400" : "text-ink-2 hover:text-ink",
+                i.disabled && "pointer-events-none opacity-40",
               )}
             >
               {i.label}
@@ -450,6 +456,9 @@ export function StatusBadge({ status }: { status: string }) {
     completed: { variant: "success", label: "Completed" },
     refunded: { variant: "warn", label: "Refunded" },
     pending: { variant: "neutral", label: "Pending" },
+    paid: { variant: "success", label: "Paid" },
+    cancelled: { variant: "neutral", label: "Cancelled" },
+    revoked: { variant: "danger", label: "Revoked" },
     active: { variant: "success", label: "Active" },
     invited: { variant: "accent", label: "Invited" },
     blocked: { variant: "danger", label: "Blocked" },

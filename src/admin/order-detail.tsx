@@ -3,51 +3,158 @@ import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Check,
-  Download,
   Mail,
   MapPin,
   CreditCard,
   Clock,
   RefreshCcw,
   FileText,
-  Truck,
+  Download,
 } from "lucide-react";
 import { PageHeader } from "./admin-layout";
-import { Panel } from "./ui";
+import { Panel, StatusBadge } from "./ui";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
-import { ProductArt } from "@/components/ui/product-art";
-import { StatusBadge } from "./ui";
-import { orders, productBySlug, customers } from "@/data/catalog";
 import { money, cn } from "@/lib/utils";
 import { toast } from "sonner";
 import NotFoundPage from "@/pages/not-found";
+import { api, ApiError } from "@/lib/api";
 
-const timeline = [
-  { label: "Order placed", at: "30 Oct 2026, 09:14", done: true },
-  { label: "Payment captured", at: "30 Oct 2026, 09:14", done: true },
-  { label: "License issued", at: "30 Oct 2026, 09:15", done: true },
-  { label: "Receipt emailed", at: "30 Oct 2026, 09:15", done: true },
-  { label: "Downloaded by customer", at: "30 Oct 2026, 11:02", done: true },
-];
+interface OrderItem {
+  id: string;
+  productSlug: string;
+  productName: string;
+  license: string;
+  unitPrice: number;
+  quantity: number;
+}
+
+interface DetailResponse {
+  order: {
+    id: string;
+    number: string;
+    email: string;
+    name: string;
+    status: "pending" | "paid" | "refunded" | "cancelled";
+    subtotal: number;
+    discount: number;
+    tax: number;
+    total: number;
+    currency: string;
+    couponCode: string | null;
+    country: string | null;
+    vatNumber: string | null;
+    notes: string | null;
+    createdAt: string;
+    updatedAt: string;
+    items: OrderItem[];
+    payments: {
+      provider: string;
+      mode: string;
+      status: string;
+      amount: number;
+      fee: number;
+      reference: string;
+      createdAt: string;
+    }[];
+  };
+  customer: {
+    id: string;
+    email: string;
+    name: string;
+    country: string | null;
+    createdAt: string;
+    orders?: number;
+    spent?: number;
+  } | null;
+  availableFiles: number;
+}
+
+const statusLabel = {
+  pending: "Pending",
+  paid: "Paid",
+  refunded: "Refunded",
+  cancelled: "Cancelled",
+} as const;
 
 export default function AdminOrderDetail() {
   const { id = "" } = useParams();
-  // The catalogue is hydrated from the API; on a cold open `orders` is empty
-  // for a tick, so render the empty state instead of dereferencing undefined.
-  const order = orders.find((o) => o.id === id) ?? orders[0];
+  const [data, setData] = React.useState<DetailResponse | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [missing, setMissing] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
 
-  if (!order) return <NotFoundPage />;
+  const load = React.useCallback(async () => {
+    try {
+      setData(await api.get<DetailResponse>(`/admin/orders/${encodeURIComponent(id)}`));
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) setMissing(true);
+      else toast.error(err instanceof ApiError ? err.message : "Could not load the order.");
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
-  const customer = customers[orders.indexOf(order)] ?? customers[0];
-  const subtotal = order.items.reduce((n, i) => n + i.price, 0);
+  React.useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function setStatus(status: "paid" | "refunded" | "cancelled") {
+    if (!data) return;
+    setBusy(true);
+    try {
+      await api.patch(`/admin/orders/${data.order.number}`, { status });
+      toast.success(`Order marked ${statusLabel[status].toLowerCase()}`, {
+        description: status === "refunded" ? "The licence was revoked." : undefined,
+      });
+      await load();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "That change did not stick.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loading) return <div className="py-20 text-center text-sm text-ink-3">Loading order…</div>;
+  if (missing || !data) return <NotFoundPage />;
+
+  const { order, customer } = data;
+  const payment = order.payments[0];
+  const paid = order.status === "paid";
+
+  // Real events, in the order they happened. No invented timeline.
+  const timeline = [
+    { label: "Order placed", at: order.createdAt, done: true },
+    {
+      label: payment ? `Payment ${payment.status}` : "Awaiting payment",
+      at: payment?.createdAt ?? order.createdAt,
+      done: Boolean(payment),
+    },
+    {
+      label: "Licences issued",
+      at: order.createdAt,
+      done: order.status === "paid" || order.status === "refunded",
+    },
+    ...(order.status === "refunded"
+      ? [{ label: "Refunded — access revoked", at: order.updatedAt, done: true }]
+      : []),
+  ];
+
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
   return (
     <div>
       <PageHeader
-        title={order.id}
-        subtitle={`Placed ${new Date(order.date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })} · ${order.items.length} item${order.items.length === 1 ? "" : "s"}`}
+        title={order.number}
+        subtitle={`Placed ${fmt(order.createdAt)} · ${order.items.length} item${order.items.length === 1 ? "" : "s"}`}
         actions={
           <>
             <Button asChild variant="ghost" size="xs" className="h-8">
@@ -55,12 +162,22 @@ export default function AdminOrderDetail() {
                 <ArrowLeft className="size-3.5" /> Orders
               </Link>
             </Button>
-            <Button variant="outline" size="xs" className="h-8" onClick={() => toast.success("Receipt re-sent")}>
-              <Mail className="size-3.5" /> Resend receipt
+            <Button
+              variant="outline"
+              size="xs"
+              className="h-8"
+              onClick={() => {
+                void navigator.clipboard?.writeText(customer?.email ?? order.email);
+                toast.success("Customer email copied");
+              }}
+            >
+              <Mail className="size-3.5" /> Copy email
             </Button>
-            <Button size="xs" className="h-8" onClick={() => toast.success("Order marked fulfilled")}>
-              <Check className="size-3.5" /> Mark fulfilled
-            </Button>
+            {paid && (
+              <Button size="xs" className="h-8" disabled={busy} onClick={() => void setStatus("refunded")}>
+                <RefreshCcw className="size-3.5" /> Refund {money(order.total, { free: false })}
+              </Button>
+            )}
           </>
         }
       />
@@ -70,52 +187,54 @@ export default function AdminOrderDetail() {
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3">
             <StatusBadge status={order.status} />
             <span className="text-[0.6875rem] text-ink-3">
-              Payment captured · {order.payment}
+              {payment ? `${payment.provider} · ${payment.mode} · ${payment.reference}` : "No payment recorded"}
             </span>
-            <span className="ml-auto font-mono text-[0.9375rem] font-medium">{money(order.total)}</span>
+            <span className="ml-auto font-mono text-[0.9375rem] font-medium">{money(order.total, { free: false })}</span>
           </div>
 
           <Panel title="Items" bodyClassName="divide-y divide-line">
-            {order.items.map((item) => {
-              const p = productBySlug(item.productSlug);
-              if (!p) return null;
-              return (
-                <div key={item.productSlug} className="flex items-center gap-3 px-4 py-3">
-                  <ProductArt {...p.art} kind={p.art.kind} className="size-12 shrink-0 rounded-sm" />
-                  <div className="min-w-0 flex-1">
-                    <Link
-                      to={`/admin/products/${p.slug}`}
-                      className="block truncate text-[0.8125rem] font-medium hover:text-accent-ink dark:hover:text-accent"
-                    >
-                      {p.name}
-                    </Link>
-                    <p className="text-[0.625rem] text-ink-3">
-                      {item.license} license · v{p.version} · SKU KLN-{p.slug.slice(0, 4).toUpperCase()}
-                    </p>
-                  </div>
-                  <Badge variant="neutral" size="sm">
-                    Digital
-                  </Badge>
-                  <span className="w-16 shrink-0 text-right font-mono text-[0.75rem]">{money(item.price)}</span>
+            {order.items.map((item) => (
+              <div key={item.id} className="flex items-center gap-3 px-4 py-3">
+                <div className="grid size-12 shrink-0 place-items-center rounded-sm bg-surface-3 font-display text-lg text-ink-2">
+                  {item.productName.charAt(0)}
                 </div>
-              );
-            })}
+                <div className="min-w-0 flex-1">
+                  <Link
+                    to={`/admin/products/${item.productSlug}`}
+                    className="block truncate text-[0.8125rem] font-medium hover:text-accent-ink dark:hover:text-accent"
+                  >
+                    {item.productName}
+                  </Link>
+                  <p className="text-[0.625rem] capitalize text-ink-3">{item.license} license</p>
+                </div>
+                <Badge variant="neutral" size="sm">
+                  Digital
+                </Badge>
+                <span className="w-16 shrink-0 text-right font-mono text-[0.75rem]">
+                  {money(item.unitPrice, { free: false })}
+                </span>
+              </div>
+            ))}
             <div className="space-y-1.5 px-4 py-3 text-[0.75rem]">
               <div className="flex justify-between text-ink-2">
                 <span>Subtotal</span>
-                <span className="font-mono">{money(subtotal)}</span>
+                <span className="font-mono">{money(order.subtotal, { free: false })}</span>
               </div>
-              <div className="flex justify-between text-ink-2">
-                <span>Discount</span>
-                <span className="font-mono">−{money(0)}</span>
-              </div>
-              <div className="flex justify-between text-ink-2">
-                <span>VAT (7.5%)</span>
-                <span className="font-mono">{money(order.total - subtotal)}</span>
-              </div>
+              {order.discount > 0 && (
+                <div className="flex justify-between text-ink-2">
+                  <span>Discount{order.couponCode ? ` · ${order.couponCode}` : ""}</span>
+                  <span className="font-mono">−{money(order.discount, { free: false })}</span>
+                </div>
+              )}
+              {order.tax > 0 && (
+                <div className="flex justify-between text-ink-2">
+                  <span>Tax</span>
+                  <span className="font-mono">{money(order.tax, { free: false })}</span>
+                </div>
+              )}
               <div className="flex justify-between border-t border-line pt-1.5 font-medium text-ink">
                 <span>Total</span>
-                <span className="font-mono">{money(order.total)}</span>
+                <span className="font-mono">{money(order.total, { free: false })}</span>
               </div>
             </div>
           </Panel>
@@ -133,7 +252,7 @@ export default function AdminOrderDetail() {
                     {t.done && <Check className="size-2 text-brand-ink" strokeWidth={4} />}
                   </span>
                   <p className="text-[0.75rem] font-medium text-ink">{t.label}</p>
-                  <p className="text-[0.625rem] text-ink-3">{t.at}</p>
+                  <p className="text-[0.625rem] text-ink-3">{fmt(t.at)}</p>
                 </li>
               ))}
             </ol>
@@ -143,69 +262,99 @@ export default function AdminOrderDetail() {
         <aside className="space-y-3">
           <Panel title="Customer" bodyClassName="p-4">
             <div className="flex items-center gap-2.5">
-              <Avatar initials={customer.initials} size="lg" />
+              <Avatar
+                initials={order.name
+                  .split(" ")
+                  .map((w) => w[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase()}
+                size="lg"
+              />
               <div className="min-w-0">
-                <p className="truncate text-[0.8125rem] font-medium">{customer.name}</p>
-                <p className="truncate text-[0.625rem] text-ink-3">{customer.email}</p>
+                <p className="truncate text-[0.8125rem] font-medium">{order.name}</p>
+                <p className="truncate text-[0.625rem] text-ink-3">{order.email}</p>
               </div>
             </div>
             <div className="mt-3 space-y-2 border-t border-line pt-3 text-[0.6875rem] text-ink-2">
+              {order.country && (
+                <p className="flex items-center gap-2">
+                  <MapPin className="size-3.5 text-ink-3" /> {order.country}
+                  {order.vatNumber ? ` · ${order.vatNumber}` : ""}
+                </p>
+              )}
               <p className="flex items-center gap-2">
-                <MapPin className="size-3.5 text-ink-3" /> {customer.country}
-              </p>
-              <p className="flex items-center gap-2">
-                <FileText className="size-3.5 text-ink-3" /> {customer.orders} lifetime orders ·{" "}
-                {money(customer.spent, { free: false })}
-              </p>
-              <p className="flex items-center gap-2">
-                <Clock className="size-3.5 text-ink-3" /> Customer since {customer.joined}
+                <Clock className="size-3.5 text-ink-3" />
+                {customer
+                  ? `Customer since ${new Date(customer.createdAt).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}`
+                  : "Guest checkout — no account"}
               </p>
             </div>
-            <Button asChild variant="outline" size="xs" className="mt-3 h-7 w-full">
-              <Link to="/admin/customers">View profile</Link>
-            </Button>
+            {customer && (
+              <Button asChild variant="outline" size="xs" className="mt-3 h-7 w-full">
+                <Link to="/admin/customers">View customers</Link>
+              </Button>
+            )}
           </Panel>
 
           <Panel title="Payment" bodyClassName="p-4 text-[0.6875rem]">
-            <div className="flex items-center gap-2">
-              <CreditCard className="size-3.5 text-ink-3" />
-              <span className="font-mono">{order.payment}</span>
-            </div>
-            <dl className="mt-3 space-y-1.5">
-              {[
-                ["Method", "Stripe"],
-                ["Captured", money(order.total)],
-                ["Fee", money(Math.round(order.total * 0.029 + 30))],
-                ["Net", money(order.total - Math.round(order.total * 0.029 + 30))],
-              ].map(([k, v]) => (
-                <div key={k} className="flex justify-between">
-                  <dt className="text-ink-3">{k}</dt>
-                  <dd className="font-mono text-ink-2">{v}</dd>
+            {payment ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <CreditCard className="size-3.5 text-ink-3" />
+                  <span className="font-mono">{payment.reference}</span>
                 </div>
-              ))}
-            </dl>
-            <Button variant="ghost" size="xs" className="mt-2 h-7 w-full">
-              View in Stripe
-            </Button>
+                <dl className="mt-3 space-y-1.5">
+                  {[
+                    ["Provider", payment.provider],
+                    ["Status", payment.status],
+                    ["Captured", money(payment.amount, { free: false })],
+                    ["Fee", money(payment.fee, { free: false })],
+                    ["Net", money(payment.amount - payment.fee, { free: false })],
+                  ].map(([k, v]) => (
+                    <div key={k} className="flex justify-between">
+                      <dt className="text-ink-3">{k}</dt>
+                      <dd className="font-mono capitalize text-ink-2">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <p className="mt-2 border-t border-line pt-2 text-[0.625rem] leading-relaxed text-ink-3">
+                  Demo gateway — no card was charged. Wire a live Stripe key to take real money.
+                </p>
+              </>
+            ) : (
+              <p className="text-ink-3">This order has no payment record.</p>
+            )}
           </Panel>
 
           <Panel title="Actions" bodyClassName="space-y-1.5 p-4">
-            <Button variant="outline" size="xs" className="h-8 w-full justify-start">
-              <Download className="size-3.5" /> Reissue download links
+            <Button asChild variant="outline" size="xs" className="h-8 w-full justify-start">
+              <a href={`/api/admin/export/orders`} download>
+                <Download className="size-3.5" /> Export orders CSV
+              </a>
             </Button>
-            <Button variant="outline" size="xs" className="h-8 w-full justify-start">
-              <Truck className="size-3.5" /> Mark as delivered
-            </Button>
-            <Button variant="outline" size="xs" className="h-8 w-full justify-start">
-              <FileText className="size-3.5" /> Download invoice PDF
+            <Button
+              variant="outline"
+              size="xs"
+              className="h-8 w-full justify-start"
+              disabled={busy || order.status === "cancelled"}
+              onClick={() => void setStatus("cancelled")}
+            >
+              <FileText className="size-3.5" /> Mark cancelled
             </Button>
             <Button
               variant="outline"
               size="xs"
               className="h-8 w-full justify-start text-red-600 dark:text-red-400"
-              onClick={() => toast.success("Refund initiated")}
+              disabled={busy || order.status === "refunded"}
+              onClick={() => void setStatus("refunded")}
             >
-              <RefreshCcw className="size-3.5" /> Refund {money(order.total)}
+              <RefreshCcw className="size-3.5" />{" "}
+              {order.status === "refunded" ? "Already refunded" : `Refund ${money(order.total, { free: false })}`}
             </Button>
           </Panel>
         </aside>
