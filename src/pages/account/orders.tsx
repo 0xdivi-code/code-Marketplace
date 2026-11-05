@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/field";
 import type { Order } from "@/data/types";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
+import { toast } from "sonner";
 import { money } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
@@ -17,6 +18,34 @@ const statusTone = {
 } as const;
 
 export default function OrdersPage() {
+  /** Invoice and refund requests are real calls, not decoration. */
+  async function invoice(number: string) {
+    try {
+      const res = await fetch(`/api/account/orders/${number}/invoice`, { credentials: "include" });
+      if (!res.ok) throw new Error("Invoice unavailable.");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${number}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Invoice unavailable.");
+    }
+  }
+
+  async function requestRefund(number: string) {
+    const reason = window.prompt(`Why are you asking for a refund on ${number}?`);
+    if (reason === null) return;
+    try {
+      await api.post(`/account/orders/${number}/refund-request`, { reason: reason.trim() || undefined });
+      toast.success("Refund request sent", { description: "The studio sees it in the activity log." });
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not send that request.");
+    }
+  }
+
   const [filter, setFilter] = React.useState("all");
   const [open, setOpen] = React.useState<string | null>(null);
   const [orders, setOrders] = React.useState<Order[]>([]);
@@ -138,11 +167,11 @@ export default function OrdersPage() {
                         })}
                       </ul>
                       <div className="flex flex-wrap items-center gap-2 border-t border-line bg-surface-2/50 px-4 py-2.5">
-                        <Button size="sm" variant="outline">
-                          <FileText className="size-3.5" /> Invoice PDF
+                        <Button size="sm" variant="outline" onClick={() => void invoice(o.id)}>
+                          <FileText className="size-3.5" /> Invoice
                         </Button>
                         {o.status === "completed" ? (
-                          <Button size="sm" variant="ghost">
+                          <Button size="sm" variant="ghost" onClick={() => void requestRefund(o.id)}>
                             <RotateCcw className="size-3.5" /> Request refund
                           </Button>
                         ) : (

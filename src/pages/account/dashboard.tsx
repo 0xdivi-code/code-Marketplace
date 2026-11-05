@@ -1,3 +1,4 @@
+import * as React from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -13,23 +14,78 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ProductArt } from "@/components/ui/product-art";
-import { orders, productBySlug, products } from "@/data/catalog";
+import { productBySlug, products } from "@/data/catalog";
 import { money, compact } from "@/lib/utils";
 import { useWishlist } from "@/lib/store";
+import { api } from "@/lib/api";
+
+interface LibraryItem {
+  slug: string;
+  name: string;
+  version: string;
+  license: string;
+  grantedAt: string;
+  art: { from: string; to: string; ink: string; kind: string; src?: string };
+}
+
+/** Shape of `GET /api/account/orders` — the mapper reports `paid` as `completed`. */
+interface OrderItem {
+  id: string;
+  status: "completed" | "refunded" | "pending";
+  total: number;
+  date: string;
+  items: { productSlug: string; license: string; price: number }[];
+}
 
 export default function DashboardPage() {
   const wishlist = useWishlist();
-  const purchased = orders
-    .filter((o) => o.status === "completed")
-    .flatMap((o) => o.items.map((i) => ({ ...i, order: o.id, date: o.date })))
-    .slice(0, 4);
+  const [library, setLibrary] = React.useState<LibraryItem[]>([]);
+  const [orders, setOrders] = React.useState<OrderItem[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    let alive = true;
+    void Promise.all([
+      api.get<{ library: LibraryItem[] }>("/account/library").catch(() => ({ library: [] })),
+      api.get<{ orders: OrderItem[] }>("/account/orders").catch(() => ({ orders: [] })),
+    ]).then(([lib, ord]) => {
+      if (!alive) return;
+      setLibrary(lib.library);
+      setOrders(ord.orders);
+      setLoading(false);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const purchased = library.slice(0, 4);
   const saved = products.filter((p) => wishlist.slugs.includes(p.slug)).slice(0, 3);
+  const paidOrders = orders.filter((o) => o.status === "completed");
+  const spent = paidOrders.reduce((n, o) => n + o.total, 0);
 
   const stats = [
-    { label: "Items owned", value: "7", sub: "across 4 orders", icon: Download },
-    { label: "Spent to date", value: money(118700), sub: "avg $16,957/order", icon: Receipt },
+    {
+      label: "Items owned",
+      value: loading ? "—" : String(library.length),
+      sub: `across ${paidOrders.length} order${paidOrders.length === 1 ? "" : "s"}`,
+      icon: Download,
+    },
+    {
+      label: "Spent to date",
+      value: loading ? "—" : money(spent),
+      sub: paidOrders.length ? `avg ${money(Math.round(spent / paidOrders.length))}/order` : "no purchases yet",
+      icon: Receipt,
+    },
     { label: "Saved items", value: String(wishlist.slugs.length), sub: "wishlist", icon: Heart },
-    { label: "Updates waiting", value: "3", sub: "free, as always", icon: RefreshCw },
+    {
+      label: "Updates waiting",
+      value: loading
+        ? "—"
+        : String(library.filter((l) => (productBySlug(l.slug)?.changelog.length ?? 0) > 1).length),
+      sub: "free, as always",
+      icon: RefreshCw,
+    },
   ];
 
   return (
@@ -68,24 +124,24 @@ export default function DashboardPage() {
           </div>
           <ul className="divide-y divide-line">
             {purchased.map((item) => {
-              const p = productBySlug(item.productSlug);
-              if (!p) return null;
+              const p = productBySlug(item.slug);
+              const hasUpdate = (p?.changelog.length ?? 0) > 1;
               return (
-                <li key={`${item.productSlug}-${item.order}`} className="flex items-center gap-3 px-5 py-3">
-                  <ProductArt {...p.art} kind={p.art.kind} className="size-12 shrink-0 rounded-sm" />
+                <li key={item.slug} className="flex items-center gap-3 px-5 py-3">
+                  <ProductArt {...item.art} kind={item.art.kind as "window"} className="size-12 shrink-0 rounded-sm" />
                   <div className="min-w-0 flex-1">
                     <Link
-                      to={`/item/${p.slug}`}
+                      to={`/item/${item.slug}`}
                       className="block truncate text-[0.8125rem] font-medium hover:text-accent-ink dark:hover:text-accent"
                     >
-                      {p.name}
+                      {item.name}
                     </Link>
                     <p className="text-[0.625rem] text-ink-3">
-                      v{p.version} · {item.order} ·{" "}
-                      {new Date(item.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                      v{item.version} · {item.license} ·{" "}
+                      {new Date(item.grantedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                     </p>
                   </div>
-                  {p.changelog.length > 1 ? (
+                  {hasUpdate ? (
                     <Badge variant="accent" size="sm">
                       Update
                     </Badge>

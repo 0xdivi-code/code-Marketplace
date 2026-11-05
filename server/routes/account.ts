@@ -101,6 +101,90 @@ account.get("/orders", async (c) => {
   });
 });
 
+/**
+ * A plain-text invoice. No PDF toolchain in this sandbox, so this is the real
+ * document — itemised, with the coupon and totals the order actually recorded.
+ */
+account.get("/orders/:number/invoice", async (c) => {
+  const user = await requireUser(c);
+  if (!user) return c.json({ error: "Sign in to continue." }, 401);
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(t.orders)
+    .where(and(eq(t.orders.number, c.req.param("number")), eq(t.orders.userId, user.id)))
+    .limit(1);
+  const order = rows[0];
+  if (!order) return c.json({ error: "Order not found" }, 404);
+  const items = await db.select().from(t.orderItems).where(eq(t.orderItems.orderId, order.id));
+
+  const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const lines = [
+    `INVOICE ${order.number}`,
+    new Date(order.createdAt).toISOString().slice(0, 10),
+    "",
+    `Billed to: ${order.name} <${order.email}>`,
+    order.country ? `Country: ${order.country}${order.vatNumber ? ` · VAT ${order.vatNumber}` : ""}` : "",
+    "",
+    "Items",
+    ...items.map((i) => `  ${i.productName} — ${i.license} license    ${money(i.unitPrice)}`),
+    "",
+    `Subtotal: ${money(order.subtotal)}`,
+    order.discount > 0 ? `Discount${order.couponCode ? ` (${order.couponCode})` : ""}: -${money(order.discount)}` : "",
+    order.tax > 0 ? `Tax: ${money(order.tax)}` : "",
+    `Total paid: ${money(order.total)} ${order.currency}`,
+    "",
+    `Status: ${order.status}`,
+    "",
+    "Kiln — digital goods. No goods are shipped; licences are delivered to your account.",
+  ].filter(Boolean);
+
+  return c.text(lines.join("\n"), 200, {
+    "Content-Type": "text/plain; charset=utf-8",
+    "Content-Disposition": `attachment; filename="${order.number}.txt"`,
+  });
+});
+
+/**
+ * A refund request lands in the activity log for the owner to action. Nothing is
+ * refunded automatically — money moving is a human decision.
+ */
+account.post(
+  "/orders/:number/refund-request",
+  zValidator("json", z.object({ reason: z.string().trim().max(600).optional() })),
+  async (c) => {
+    const user = await requireUser(c);
+    if (!user) return c.json({ error: "Sign in to continue." }, 401);
+    const db = getDb();
+    const rows = await db
+      .select()
+      .from(t.orders)
+      .where(and(eq(t.orders.number, c.req.param("number")), eq(t.orders.userId, user.id)))
+      .limit(1);
+    const order = rows[0];
+    if (!order) return c.json({ error: "Order not found" }, 404);
+    if (order.status === "refunded") return c.json({ error: "This order is already refunded." }, 409);
+
+    const recent = await db
+      .select()
+      .from(t.activityLog)
+      .where(and(eq(t.activityLog.target, order.number), eq(t.activityLog.kind, "order")))
+      .limit(50);
+    if (recent.some((r) => r.action.startsWith("requested a refund"))) {
+      return c.json({ error: "You already asked about this order — we are on it." }, 409);
+    }
+
+    await logActivity({
+      actor: user.email,
+      action: `requested a refund${c.req.valid("json").reason ? `: ${c.req.valid("json").reason}` : ""}`,
+      target: order.number,
+      kind: "order",
+      ip: clientIp(c),
+    });
+    return c.json({ ok: true }, 201);
+  },
+);
+
 account.get("/orders/:number", async (c) => {
   const user = await requireUser(c);
   if (!user) return c.json({ error: "Sign in to continue." }, 401);
