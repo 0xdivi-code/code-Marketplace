@@ -5,7 +5,8 @@
  * once so the storefront reads identical data from real rows afterwards. Safe to
  * re-run: everything is upserted on natural keys.
  */
-import { basename } from "node:path";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { sql } from "drizzle-orm";
 import { getDb, initDb } from "./client";
 import { and, eq } from "drizzle-orm";
@@ -683,11 +684,15 @@ export async function seedAdmin(log = true) {
 /**
  * Run only when this file is the entry point.
  *
- * `endsWith("seed.ts")` also matches `reseed.ts`, which imports this module —
- * the auto-run then fired a second, non-forced seed alongside the caller and
- * exited the process before it finished.
+ * Filename matching is wrong twice over: `reseed.ts` contains "seed.ts" so
+ * `endsWith` matched it, and `basename` matches the wrapper at
+ * server/scripts/seed.ts too. Either way the import fired a second, competing
+ * seed. Compare resolved paths.
  */
-if (process.argv[1] && basename(process.argv[1]) === "seed.ts") {
+const isEntryPoint =
+  process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isEntryPoint) {
   seed()
     .then(() => process.exit(0))
     .catch((e) => {

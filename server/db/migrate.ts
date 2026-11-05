@@ -6,7 +6,7 @@
  * behaviour identical on PGlite and on a real Postgres server.
  */
 import { readdirSync, readFileSync } from "node:fs";
-import { join, dirname, basename } from "node:path";
+import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sql } from "drizzle-orm";
 import { getDb, execRaw, initDb } from "./client";
@@ -59,12 +59,16 @@ export async function migrate({ log = true }: { log?: boolean } = {}) {
 /**
  * Auto-run only when this file is the entry point.
  *
- * `endsWith("migrate.ts")` also matched the wrapper at server/scripts/migrate.ts,
- * so importing it fired a *second* concurrent migration. Both read the ledger
- * before either wrote to it, both applied 0001, and the second insert hit the
- * primary key — a fresh clone could not migrate at all.
+ * Filename matching is not enough: server/scripts/migrate.ts is a wrapper with
+ * the same basename, so both `endsWith` and `basename` matched it and fired a
+ * *second, concurrent* migration. Both read the ledger before either wrote, so
+ * both applied 0001 and the second insert hit the primary key — a fresh clone
+ * could not migrate at all. Compare resolved paths instead.
  */
-if (process.argv[1] && basename(process.argv[1]) === "migrate.ts") {
+const isEntryPoint =
+  process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isEntryPoint) {
   migrate()
     .then(() => process.exit(0))
     .catch((e) => {
