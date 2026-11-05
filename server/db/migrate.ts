@@ -24,9 +24,8 @@ export async function migrate({ log = true }: { log?: boolean } = {}) {
     )
   `);
 
-  const applied = new Set<string>(
-    (await db.execute<{ name: string }>(sql`select name from _migrations`)).rows.map((r) => r.name),
-  );
+  const ledger = await db.execute<{ name: string }>(sql`select name from _migrations`);
+  const applied = new Set<string>(ledger.rows.map((r: { name: string }) => r.name));
 
   // `FORCE_MIGRATION=<file>` re-runs one file even though it is in the ledger.
   // Used when a migration is edited before a release; it must already be

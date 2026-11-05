@@ -120,7 +120,7 @@ async function main() {
       "x-file-kind": "source_zip",
       "content-type": "application/zip",
     },
-    body: zipBytes,
+    body: new Uint8Array(zipBytes),
   });
   const uploadJson = await upload.json().catch(() => null);
   ok("source archive uploaded", upload.status === 200 || upload.status === 201, JSON.stringify(uploadJson).slice(0, 140));

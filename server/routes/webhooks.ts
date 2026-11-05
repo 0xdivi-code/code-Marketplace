@@ -330,7 +330,16 @@ webhooks.post("/sandbox/:ref/pay", async (c) => {
       })
     : await webhooks.fetch(build());
   const out = (await res.json().catch(() => ({}))) as Json;
-  return c.json({ ok: res.ok, forwarded: out }, res.ok ? 200 : res.status);
+  /**
+   * Hono's status must be a known literal; an arbitrary `res.status` number is
+   * not assignable. Forward only statuses we actually produce, and fall back to
+   * 502 for anything unexpected rather than echoing an arbitrary code.
+   */
+  const STATUSES = [200, 400, 401, 402, 404, 409, 422, 429, 500, 502, 503] as const;
+  const status = (STATUSES as readonly number[]).includes(res.status)
+    ? (res.status as (typeof STATUSES)[number])
+    : 502;
+  return c.json({ ok: res.ok, forwarded: out }, status);
 });
 
 /** Sign exactly as the sandbox provider verifies: HMAC-SHA512 over the raw body. */
