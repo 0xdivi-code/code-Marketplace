@@ -42,12 +42,16 @@ export default function AdminOrders() {
   const [page, setPage] = React.useState(1);
   const [selected, setSelected] = React.useState<string[]>([]);
   const [orders, setOrders] = React.useState<AdminOrder[]>([]);
+  const [totalOrders, setTotalOrders] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
 
   const load = React.useCallback(async () => {
     try {
-      const res = await api.get<{ orders: AdminOrder[] }>("/admin/orders");
+      // The newest 200 are enough for the console; older orders are reachable
+      // by search, which the server applies before the limit.
+      const res = await api.get<{ orders: AdminOrder[]; total: number }>("/admin/orders?limit=200");
       setOrders(res.orders);
+      setTotalOrders(res.total);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Could not load orders.");
     } finally {
@@ -276,7 +280,21 @@ export default function AdminOrders() {
             </div>
           </>
         }
-        footer={<TableFooter shown={rows.length} total={filtered.length} page={page} pages={pages} onPage={setPage} />}
+        footer={
+          <TableFooter
+            shown={rows.length}
+            total={filtered.length}
+            page={page}
+            pages={pages}
+            onPage={setPage}
+            /* The console loads the newest 200; say so when there are more. */
+            note={
+              totalOrders > orders.length
+                ? `Showing the newest ${orders.length} of ${totalOrders.toLocaleString()} orders — search to reach older ones.`
+                : undefined
+            }
+          />
+        }
       />
 
       {refundFor && (

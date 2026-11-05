@@ -330,17 +330,21 @@ export function TableFooter({
   page,
   pages,
   onPage,
+  note,
 }: {
   shown: number;
   total: number;
   page: number;
   pages: number;
   onPage: (p: number) => void;
+  /** Spoken when the table is a window onto a larger set. */
+  note?: string;
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 text-[0.6875rem] text-ink-3">
       <span>
         Showing <strong className="font-medium text-ink-2">{shown}</strong> of {total}
+        {note && <span className="ml-2 text-ink-3">· {note}</span>}
       </span>
       <div className="flex items-center gap-1">
         <button

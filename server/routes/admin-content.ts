@@ -375,14 +375,33 @@ adminApi.delete("/customers/:id/licenses/:slug", async (c) => {
 
 /* ------------------------------------------------------------------- orders */
 
+/**
+ * Orders, paged.
+ *
+ * The admin table shows everything for a boutique catalogue, but this query ran
+ * unbounded: a store with 20,000 orders would load 20,000 rows plus every line
+ * item and payment in one response. `page`/`limit` keep that flat; the total is
+ * returned so the console can show "1–50 of 4,213".
+ */
 adminApi.get("/orders", async (c) => {
   const db = getDb();
   const q = (c.req.query("q") ?? "").trim();
+  const limit = Math.min(200, Math.max(1, Number(c.req.query("limit") ?? 50) || 50));
+  const page = Math.max(1, Number(c.req.query("page") ?? 1) || 1);
+  const where = q ? or(ilike(t.orders.number, `%${q}%`), ilike(t.orders.email, `%${q}%`)) : undefined;
+
+  const [{ n: total }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(t.orders)
+    .where(where);
+
   const rows = await db
     .select()
     .from(t.orders)
-    .where(q ? or(ilike(t.orders.number, `%${q}%`), ilike(t.orders.email, `%${q}%`)) : undefined)
-    .orderBy(desc(t.orders.createdAt));
+    .where(where)
+    .orderBy(desc(t.orders.createdAt))
+    .limit(limit)
+    .offset((page - 1) * limit);
 
   const items = rows.length
     ? await db.select().from(t.orderItems).where(inArray(t.orderItems.orderId, rows.map((r) => r.id)))
@@ -401,6 +420,9 @@ adminApi.get("/orders", async (c) => {
     : [];
 
   return c.json({
+    total,
+    page,
+    limit,
     orders: rows.map((o) => {
       const pays = payments.filter((p) => p.orderId === o.id);
       return {
