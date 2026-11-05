@@ -111,7 +111,7 @@ export function SiteHeader() {
             : "border-transparent bg-paper",
         )}
       >
-        <div className="container-x flex h-16 items-center gap-3 lg:h-[68px]">
+        <div className="container-x flex h-16 items-center gap-2 lg:h-[68px] lg:gap-3">
           <Link to="/" aria-label="Kiln home" className="shrink-0">
             <KilnLogo />
           </Link>
@@ -121,7 +121,8 @@ export function SiteHeader() {
               <button
                 onClick={() => setMegaOpen((v) => !v)}
                 className={cn(
-                  "flex items-center gap-1 rounded-full px-3 py-2 text-[0.8125rem] font-medium text-ink-2 transition-colors hover:text-ink",
+                  // px-2 up to xl: at exactly 1024px the full row overflowed by 69px
+                  "flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-2 text-[0.8125rem] font-medium text-ink-2 transition-colors hover:text-ink xl:px-3",
                   megaOpen && "text-ink",
                 )}
                 aria-expanded={megaOpen}
@@ -138,7 +139,7 @@ export function SiteHeader() {
                 to={l.to}
                 className={({ isActive }) =>
                   cn(
-                    "rounded-full px-3 py-2 text-[0.8125rem] font-medium transition-colors hover:text-ink",
+                    "whitespace-nowrap rounded-full px-2 py-2 text-[0.8125rem] font-medium transition-colors hover:text-ink xl:px-3",
                     isActive ? "text-ink" : "text-ink-2",
                   )
                 }
@@ -151,7 +152,7 @@ export function SiteHeader() {
           <div className="ml-auto flex items-center gap-1">
             <button
               onClick={() => setSearch(true)}
-              className="group hidden h-9 items-center gap-2 rounded-full border border-line bg-surface pl-3 pr-2 text-[0.8125rem] text-ink-3 transition-colors hover:border-line-strong hover:text-ink md:flex md:w-56 xl:w-64"
+              className="group hidden h-9 items-center gap-2 rounded-full border border-line bg-surface pl-3 pr-2 text-[0.8125rem] text-ink-3 transition-colors hover:border-line-strong hover:text-ink md:flex md:w-40 lg:w-44 xl:w-64"
             >
               <Search className="size-3.5" />
               <span className="flex-1 text-left">Search code…</span>
@@ -169,7 +170,7 @@ export function SiteHeader() {
 
             <button
               onClick={toggle}
-              className="grid size-9 place-items-center rounded-full text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
+              className="grid size-9 place-items-center rounded-full text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink md:size-8 xl:size-9"
               aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
             >
               <AnimatePresence mode="wait" initial={false}>
@@ -188,7 +189,7 @@ export function SiteHeader() {
 
             <Link
               to="/account/wishlist"
-              className="relative hidden size-9 place-items-center rounded-full text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink sm:grid"
+              className="relative hidden size-9 place-items-center rounded-full text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink sm:grid md:size-8"
               aria-label="Wishlist"
             >
               <Heart className="size-[1.05rem]" />

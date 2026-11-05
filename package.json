@@ -21,7 +21,8 @@
     "reseed": "tsx server/scripts/reseed.ts",
     "migrate": "tsx server/scripts/migrate.ts",
     "backup": "tsx server/scripts/backup.ts",
-    "restore": "tsx server/scripts/restore.ts"
+    "restore": "tsx server/scripts/restore.ts",
+    "test:responsive": "node scripts/check-responsive.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.15",

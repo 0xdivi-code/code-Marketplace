@@ -167,7 +167,9 @@ export default function AdminBundles() {
           {rows.map((b) => {
             const off = b.separateTotal > 0 ? Math.round((1 - b.price / b.separateTotal) * 100) : 0;
             return (
-              <Panel key={b.id} bodyClassName="p-4">
+              /* min-w-0: a grid item defaults to min-content width, so the
+                 nowrap product names pushed the card 100px past the phone. */
+              <Panel key={b.id} bodyClassName="p-4" className="min-w-0">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
