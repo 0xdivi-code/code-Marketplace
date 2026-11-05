@@ -45,7 +45,7 @@ const routes = [
 const browser = await puppeteer.launch({
   executablePath: EXEC,
   args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--font-render-hinting=none"],
-  env: { ...process.env, LD_LIBRARY_PATH: "/tmp/al2023/lib" },
+  env: { ...process.env, LD_LIBRARY_PATH: "/tmp/al2023x/lib:/tmp" },
 });
 
 const problems = [];

@@ -43,7 +43,7 @@ if (!executablePath || !existsSync(executablePath)) {
 const browser = await puppeteer.launch({
   executablePath,
   args: ["--no-sandbox"],
-  env: { ...process.env, LD_LIBRARY_PATH: process.env.LD_LIBRARY_PATH ?? "/tmp/al2023/lib" },
+  env: { ...process.env, LD_LIBRARY_PATH: process.env.LD_LIBRARY_PATH ?? "/tmp/al2023x/lib:/tmp" },
 });
 
 const failures = [];

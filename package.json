@@ -24,7 +24,9 @@
     "restore": "tsx server/scripts/restore.ts",
     "test:responsive": "node scripts/check-responsive.mjs",
     "check:images": "node scripts/check-ref-images.mjs",
-    "fetch:images": "bash scripts/fetch-ref-images.sh"
+    "fetch:images": "bash scripts/fetch-ref-images.sh",
+    "art:import": "node scripts/import-artwork.mjs",
+    "art:report": "node scripts/report-artwork.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.15",
