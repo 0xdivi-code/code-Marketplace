@@ -61,11 +61,18 @@ export default function AboutPage() {
               </div>
             </div>
             <div className="overflow-hidden rounded-lg border border-line">
-              <img
-                src="/img/studio-maker.png"
-                alt="Inside the Kiln studio"
-                className="aspect-[4/3] w-full object-cover"
-              />
+              <picture>
+                <source srcSet="/img/studio-maker.webp" type="image/webp" />
+                <img
+                  src="/img/studio-maker.jpg"
+                  alt="Inside the Kiln studio"
+                  className="aspect-[4/3] w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                  width={1408}
+                  height={768}
+                />
+              </picture>
             </div>
           </div>
         </div>

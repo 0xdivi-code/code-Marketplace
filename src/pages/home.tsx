@@ -434,12 +434,19 @@ return (
               transition={{ duration: 0.7, ease }}
               className="relative overflow-hidden rounded-lg border border-line"
             >
-              <img
-                src="/img/studio-maker.png"
-                alt="The Kiln studio desk at work"
-                className="aspect-[4/3] w-full object-cover"
-                loading="lazy"
-              />
+              {/* WebP is 20x smaller than the PNG; the PNG is the fallback. */}
+              <picture>
+                <source srcSet="/img/studio-maker.webp" type="image/webp" />
+                <img
+                  src="/img/studio-maker.jpg"
+                  alt="The Kiln studio desk at work"
+                  className="aspect-[4/3] w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                  width={1408}
+                  height={768}
+                />
+              </picture>
               <div className="absolute bottom-4 left-4 rounded-md border border-white/20 bg-[#14120f]/70 px-3.5 py-2.5 backdrop-blur-md">
                 <p className="label-mono text-[0.5rem] text-white/55">Est. 2021 · Lisbon</p>
                 <p className="mt-0.5 text-[0.8125rem] font-medium text-white">
@@ -778,11 +785,21 @@ function Hero({ onSearch }: { onSearch: () => void }) {
             className="relative"
           >
             <div className="relative overflow-hidden rounded-lg border border-line bg-surface shadow-pop">
-              <img
-                src="/img/hero-studio.png"
-                alt="A calm desk with a laptop showing a Kiln dashboard template"
-                className="aspect-[4/3] w-full object-cover"
-              />
+              <picture>
+                <source srcSet="/img/hero-studio.webp" type="image/webp" />
+                <img
+                  src="/img/hero-studio.jpg"
+                  alt="A calm desk with a laptop showing a Kiln dashboard template"
+                  className="aspect-[4/3] w-full object-cover"
+                  /* Above the fold: load eagerly and tell the browser the size
+                     up front so it reserves the box and does not shift. */
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
+                  width={1376}
+                  height={768}
+                />
+              </picture>
               <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-[#14120f]/85 via-[#14120f]/35 to-transparent p-4">
                 <div>
                   <p className="label-mono text-[0.5rem] text-white/60">Featured file</p>
