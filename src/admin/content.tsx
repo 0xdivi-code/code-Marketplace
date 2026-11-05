@@ -1,47 +1,127 @@
 import * as React from "react";
-import { Plus, FileText, Globe, BookOpen, PenLine, Eye, MoreHorizontal } from "lucide-react";
+import { Plus, FileText, Globe, BookOpen, PenLine, Eye } from "lucide-react";
 import { PageHeader } from "./admin-layout";
 import { Panel, DataTable, StatusBadge, RowActions, type Column } from "./ui";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { posts } from "@/data/catalog";
-import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { Field, Input, Textarea } from "@/components/ui/field";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/disclosure";
+import { toast } from "sonner";
+import { api, ApiError } from "@/lib/api";
+
+/** Row shape from `GET /api/admin/pages` — the CMS table behind every policy page. */
+interface PageRow {
+  id: string;
+  slug: string;
+  title: string;
+  kind: string;
+  body: string;
+  excerpt: string;
+  category: string;
+  status: "published" | "draft";
+  position: number;
+  updatedAt: string;
+}
 
 type Row = {
   id: string;
+  slug: string;
   title: string;
-  type: "post" | "page" | "faq";
-  status: "published" | "draft" | "review";
-  author: string;
+  type: "page" | "faq";
+  status: "published" | "draft";
+  excerpt: string;
+  words: number;
   updated: string;
-  views: number;
 };
 
-const pages: Row[] = [
-  { id: "p1", title: "About the studio", type: "page", status: "published", author: "Kiln Studio", updated: "2026-10-02", views: 8420 },
-  { id: "p2", title: "License terms", type: "page", status: "published", author: "Kiln Studio", updated: "2026-10-01", views: 12400 },
-  { id: "p3", title: "Terms of service", type: "page", status: "published", author: "Kiln Studio", updated: "2026-10-01", views: 6100 },
-  { id: "p4", title: "Privacy policy", type: "page", status: "published", author: "Kiln Studio", updated: "2026-10-01", views: 4980 },
-  { id: "p5", title: "Refund policy", type: "page", status: "published", author: "Kiln Studio", updated: "2026-10-01", views: 5120 },
-  { id: "p6", title: "Support policy", type: "page", status: "draft", author: "Kiln Studio", updated: "2026-10-28", views: 0 },
-  { id: "p7", title: "Frequently asked questions", type: "faq", status: "published", author: "Kiln Studio", updated: "2026-10-21", views: 9840 },
-];
-
-const postRows: Row[] = posts.map((p, i) => ({
-  id: p.slug,
-  title: p.title,
-  type: "post",
-  status: i === 2 ? "review" : "published",
-  author: "Kiln Studio",
-  updated: p.date,
-  views: 4200 - i * 720,
-}));
-
-const all = [...postRows, ...pages];
-
 export default function AdminContent() {
+  const [pages, setPages] = React.useState<PageRow[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [open, setOpen] = React.useState(false);
+  const [editing, setEditing] = React.useState<PageRow | null>(null);
+  const [creating, setCreating] = React.useState(false);
+  const [form, setForm] = React.useState({ title: "", slug: "", body: "", excerpt: "" });
+
+  const load = React.useCallback(async () => {
+    try {
+      const res = await api.get<{ pages: PageRow[] }>("/admin/pages");
+      setPages(res.pages);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not load content.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    void load();
+  }, [load]);
+
+  const all: Row[] = pages.map((p) => ({
+    id: p.id,
+    slug: p.slug,
+    title: p.title,
+    type: p.kind === "help" ? "faq" : "page",
+    status: p.status,
+    excerpt: p.excerpt,
+    words: p.body.trim() ? p.body.trim().split(/\s+/).length : 0,
+    updated: p.updatedAt,
+  }));
+
+  function startCreate() {
+    setEditing(null);
+    setForm({ title: "", slug: "", body: "", excerpt: "" });
+    setOpen(true);
+  }
+
+  function startEdit(slug: string) {
+    const page = pages.find((p) => p.slug === slug);
+    if (!page) return;
+    setEditing(page);
+    setForm({ title: page.title, slug: page.slug, body: page.body, excerpt: page.excerpt });
+    setOpen(true);
+  }
+
+  async function save() {
+    if (form.title.trim().length < 2) return toast.error("Give the page a title.");
+    setCreating(true);
+    try {
+      if (editing) {
+        await api.patch(`/admin/pages/${editing.slug}`, {
+          title: form.title.trim(),
+          body: form.body,
+          excerpt: form.excerpt,
+        });
+        toast.success(`“${form.title}” saved`, { description: "The storefront renders it on next load." });
+      } else {
+        await api.post("/admin/pages", {
+          title: form.title.trim(),
+          slug: form.slug.trim() || undefined,
+          body: form.body,
+        });
+        toast.success(`“${form.title}” created as a draft`);
+      }
+      setOpen(false);
+      setEditing(null);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not save that page.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function setStatus(row: Row, status: "published" | "draft") {
+    try {
+      await api.patch(`/admin/pages/${row.slug}`, { status });
+      toast.success(status === "published" ? `“${row.title}” is live` : `“${row.title}” unpublished`);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "That change did not stick.");
+    }
+  }
+
   const columns: Column<Row>[] = [
     {
       key: "title",
@@ -49,26 +129,34 @@ export default function AdminContent() {
       sortValue: (r) => r.title,
       render: (r) => (
         <div className="flex items-center gap-2">
-          {r.type === "post" ? (
-            <BookOpen className="size-3.5 shrink-0 text-ink-3" />
-          ) : r.type === "faq" ? (
+          {r.type === "faq" ? (
             <FileText className="size-3.5 shrink-0 text-ink-3" />
           ) : (
             <Globe className="size-3.5 shrink-0 text-ink-3" />
           )}
-          <span className="max-w-[280px] truncate text-[0.8125rem] font-medium text-ink">{r.title}</span>
+          <div className="min-w-0">
+            <span className="block max-w-[280px] truncate text-[0.8125rem] font-medium text-ink">{r.title}</span>
+            <span className="block max-w-[280px] truncate font-mono text-[0.5625rem] text-ink-3">/{r.slug}</span>
+          </div>
         </div>
       ),
     },
-    { key: "type", header: "Type", render: (r) => <Badge variant="neutral" size="sm" className="capitalize">{r.type}</Badge> },
-    { key: "status", header: "Status", render: (r) => <StatusBadge status={r.status} />, sortValue: (r) => r.status },
-    { key: "author", header: "Author", render: (r) => <span className="text-[0.6875rem] text-ink-3">{r.author}</span> },
     {
-      key: "views",
-      header: "Views",
+      key: "type",
+      header: "Type",
+      render: (r) => (
+        <Badge variant="neutral" size="sm" className="capitalize">
+          {r.type === "faq" ? "help" : r.type}
+        </Badge>
+      ),
+    },
+    { key: "status", header: "Status", render: (r) => <StatusBadge status={r.status} />, sortValue: (r) => r.status },
+    {
+      key: "words",
+      header: "Length",
       align: "right",
-      sortValue: (r) => r.views,
-      render: (r) => <span className="font-mono text-[0.6875rem]">{r.views.toLocaleString()}</span>,
+      sortValue: (r) => r.words,
+      render: (r) => <span className="font-mono text-[0.6875rem]">{r.words.toLocaleString()} words</span>,
     },
     {
       key: "updated",
@@ -77,7 +165,7 @@ export default function AdminContent() {
       sortValue: (r) => r.updated,
       render: (r) => (
         <span className="text-[0.6875rem] text-ink-3">
-          {new Date(r.updated).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+          {new Date(r.updated).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
         </span>
       ),
     },
@@ -88,34 +176,45 @@ export default function AdminContent() {
       render: (r) => (
         <RowActions
           items={[
-            { label: "Edit", onClick: () => toast.success(`Editing “${r.title}”`) },
-            { label: "Preview", onClick: () => toast.success("Preview opened") },
-            { label: "Publish", onClick: () => toast.success("Published") },
-            { label: "Delete", danger: true, onClick: () => toast.success("Deleted") },
+            { label: "Edit", onClick: () => startEdit(r.slug) },
+            {
+              label: r.status === "published" ? "Unpublish" : "Publish",
+              onClick: () => void setStatus(r, r.status === "published" ? "draft" : "published"),
+            },
+            {
+              label: "Copy public link",
+              onClick: () => {
+                void navigator.clipboard?.writeText(`${window.location.origin}/page/${r.slug}`);
+                toast.success("Link copied");
+              },
+            },
           ]}
         />
       ),
     },
   ];
 
+  const published = all.filter((r) => r.status === "published").length;
+  const drafts = all.filter((r) => r.status === "draft").length;
+
   return (
     <div>
       <PageHeader
         title="Content"
-        subtitle="Journal posts, static pages and help content"
+        subtitle={loading ? "Loading content…" : "Policy pages and help content, served from the database"}
         actions={
-          <Button size="xs" className="h-8" onClick={() => toast.success("New draft created")}>
-            <Plus className="size-3.5" /> New entry
+          <Button size="xs" className="h-8" onClick={startCreate}>
+            <Plus className="size-3.5" /> New page
           </Button>
         }
       />
 
       <div className="mb-3 grid gap-3 sm:grid-cols-4">
         {[
-          { l: "Published", v: String(all.filter((r) => r.status === "published").length), i: Globe },
-          { l: "Drafts", v: String(all.filter((r) => r.status === "draft").length), i: PenLine },
-          { l: "In review", v: String(all.filter((r) => r.status === "review").length), i: Eye },
-          { l: "Total views", v: all.reduce((n, r) => n + r.views, 0).toLocaleString(), i: FileText },
+          { l: "Published", v: String(published), i: Globe },
+          { l: "Drafts", v: String(drafts), i: PenLine },
+          { l: "Live pages", v: String(all.filter((r) => r.type === "page").length), i: FileText },
+          { l: "Total words", v: all.reduce((n, r) => n + r.words, 0).toLocaleString(), i: BookOpen },
         ].map((s) => (
           <div key={s.l} className="flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-2.5">
             <s.i className="size-3.5 text-ink-3" />
@@ -130,63 +229,123 @@ export default function AdminContent() {
       <Tabs defaultValue="all">
         <TabsList className="w-fit">
           <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="post">Journal</TabsTrigger>
           <TabsTrigger value="page">Pages</TabsTrigger>
           <TabsTrigger value="faq">Help</TabsTrigger>
         </TabsList>
         <TabsContent value="all" className="mt-3">
-          <DataTable columns={columns} rows={all} rowKey={(r) => r.id} />
+          <DataTable columns={columns} rows={all} rowKey={(r) => r.id} onRowClick={(r) => startEdit(r.slug)} />
         </TabsContent>
-        {(["post", "page", "faq"] as const).map((t) => (
+        {(["page", "faq"] as const).map((t) => (
           <TabsContent key={t} value={t} className="mt-3">
-            <DataTable columns={columns} rows={all.filter((r) => r.type === t)} rowKey={(r) => r.id} />
+            <DataTable
+              columns={columns}
+              rows={all.filter((r) => r.type === t)}
+              rowKey={(r) => r.id}
+              onRowClick={(r) => startEdit(r.slug)}
+            />
           </TabsContent>
         ))}
       </Tabs>
 
-      <div className="mt-3 grid gap-3 lg:grid-cols-[1.2fr_1fr]">
-        <Panel title="Journal pipeline" description="What’s next" bodyClassName="divide-y divide-line">
-          {[
-            { t: "Pricing a bundle without devaluing the parts", s: "Draft · 60% written" },
-            { t: "Our four-tier deprecation ladder, revisited", s: "Outline · assigned" },
-            { t: "What we removed from Forge 4", s: "Published · 11 Sep" },
-          ].map((p) => (
-            <div key={p.t} className="flex items-center justify-between gap-3 px-4 py-2.5">
-              <div className="min-w-0">
-                <p className="truncate text-[0.75rem]">{p.t}</p>
-                <p className="text-[0.5625rem] text-ink-3">{p.s}</p>
-              </div>
-              <Button variant="ghost" size="xs" className="h-6">
-                <MoreHorizontal className="size-3" />
-              </Button>
-            </div>
-          ))}
+      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+        <Panel title="Drafts waiting" description="Not visible on the storefront" bodyClassName="divide-y divide-line">
+          {all.filter((r) => r.status === "draft").length === 0 ? (
+            <p className="px-4 py-3 text-[0.6875rem] text-ink-3">Nothing in draft.</p>
+          ) : (
+            all
+              .filter((r) => r.status === "draft")
+              .map((r) => (
+                <div key={r.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-[0.75rem]">{r.title}</p>
+                    <p className="font-mono text-[0.5625rem] text-ink-3">/{r.slug}</p>
+                  </div>
+                  <Button variant="ghost" size="xs" className="h-6" onClick={() => void setStatus(r, "published")}>
+                    <Eye className="size-3" /> Publish
+                  </Button>
+                </div>
+              ))
+          )}
         </Panel>
 
-        <Panel title="SEO health" bodyClassName="p-4 space-y-2.5">
-          {[
-            { l: "Meta descriptions", v: 100, ok: true },
-            { l: "Titles under 60 chars", v: 88, ok: true },
-            { l: "Internal links", v: 72, ok: true },
-            { l: "Alt text coverage", v: 64, ok: false },
-          ].map((s) => (
-            <div key={s.l}>
-              <div className="flex justify-between text-[0.6875rem]">
-                <span className="text-ink-2">{s.l}</span>
-                <span className={cn("font-mono", s.ok ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400")}>
-                  {s.v}%
-                </span>
-              </div>
-              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
-                <div
-                  className={cn("h-full rounded-full", s.ok ? "bg-brand" : "bg-amber-500")}
-                  style={{ width: `${s.v}%` }}
-                />
-              </div>
-            </div>
-          ))}
+        <Panel title="Longest pages" description="By word count" bodyClassName="p-4 space-y-2.5">
+          {[...all]
+            .sort((a, b) => b.words - a.words)
+            .slice(0, 4)
+            .map((r) => {
+              const max = Math.max(1, ...all.map((x) => x.words));
+              return (
+                <div key={r.id}>
+                  <div className="flex justify-between text-[0.6875rem]">
+                    <span className="truncate text-ink-2">{r.title}</span>
+                    <span className="ml-2 shrink-0 font-mono text-ink-3">{r.words}</span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
+                    <div className="h-full rounded-full bg-brand" style={{ width: `${(r.words / max) * 100}%` }} />
+                  </div>
+                </div>
+              );
+            })}
         </Panel>
       </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editing ? `Edit “${editing.title}”` : "New page"}</DialogTitle>
+            <DialogDescription>
+              Markdown body. Drafts stay off the storefront until you publish them.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 px-6 pb-2">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Title" htmlFor="ptitle">
+                <Input
+                  id="ptitle"
+                  value={form.title}
+                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="Refund policy"
+                />
+              </Field>
+              <Field label="Slug" htmlFor="pslug" hint={editing ? "Locked once published" : "Generated from the title"}>
+                <Input
+                  id="pslug"
+                  value={form.slug}
+                  onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
+                  readOnly={Boolean(editing)}
+                  placeholder="refund-policy"
+                  className="font-mono text-[0.8125rem]"
+                />
+              </Field>
+            </div>
+            <Field label="Excerpt" htmlFor="pex">
+              <Input
+                id="pex"
+                value={form.excerpt}
+                onChange={(e) => setForm((f) => ({ ...f, excerpt: e.target.value }))}
+                placeholder="One line the listing shows"
+              />
+            </Field>
+            <Field label="Body (markdown)" htmlFor="pbody">
+              <Textarea
+                id="pbody"
+                value={form.body}
+                onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
+                className="min-h-48 font-mono text-[0.75rem]"
+                placeholder="## Section heading&#10;&#10;Paragraph text…"
+              />
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" disabled={creating} onClick={() => void save()}>
+              {creating ? "Saving…" : editing ? "Save changes" : "Create draft"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
