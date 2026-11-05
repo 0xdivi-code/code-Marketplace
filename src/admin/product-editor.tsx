@@ -10,6 +10,7 @@ import {
   Image as ImageIcon,
   Check,
   AlertTriangle,
+  Upload,
 } from "lucide-react";
 import { PageHeader } from "./admin-layout";
 import { Panel } from "./ui";
@@ -19,16 +20,39 @@ import { Field, Input, Textarea, NativeSelect, Switch, Checkbox } from "@/compon
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/disclosure";
 import { ProductArt } from "@/components/ui/product-art";
 import { categories, productBySlug } from "@/data/catalog";
+import { api, ApiError } from "@/lib/api";
+import type { Product } from "@/data/types";
+import { loadCatalog } from "@/lib/catalog-store";
+import { useCatalog } from "@/lib/catalog-store";
 import { money, cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function AdminProductEditor() {
   const { slug } = useParams();
   const navigate = useNavigate();
-  const existing = slug ? productBySlug(slug) : undefined;
+  const catalog = useCatalog();
+
+  const [record, setRecord] = React.useState<Product | undefined>(() => (slug ? productBySlug(slug) : undefined));
+
+  // Drafts never reach the public catalogue endpoint, so a product being edited
+  // is always (re)fetched from the admin endpoint — which sees every status.
+  React.useEffect(() => {
+    if (!slug) return;
+    let alive = true;
+    api
+      .get<{ product: Product }>(`/admin/products/${slug}`)
+      .then((res) => alive && setRecord(res.product))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [slug]);
+
+  const existing = record;
   const isNew = !existing;
 
   const [form, setForm] = React.useState({
+    slug: existing?.slug ?? "",
     name: existing?.name ?? "",
     tagline: existing?.tagline ?? "",
     description: existing?.description ?? "",
@@ -47,6 +71,137 @@ export default function AdminProductEditor() {
   });
 
   const set = (k: keyof typeof form, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
+
+  // The catalogue arrives asynchronously; the form must be (re)filled once the
+  // real row exists, otherwise the editor thinks it is creating a new product.
+  React.useEffect(() => {
+    if (!existing) return;
+    setForm((f) => ({
+      ...f,
+      slug: existing.slug,
+      name: existing.name,
+      tagline: existing.tagline,
+      description: existing.description,
+      category: existing.category || f.category,
+      stack: existing.stack.join(", "),
+      price: (existing.price / 100).toFixed(2),
+      compareAt: existing.compareAt ? (existing.compareAt / 100).toFixed(2) : "",
+      version: existing.version,
+      status: existing.status,
+      featured: existing.featured,
+      trending: existing.trending,
+      free: existing.free,
+      seoTitle: existing.name,
+      seoDescription: existing.tagline,
+    }));
+    setSavedSlug(existing.slug);
+  }, [existing?.slug]);
+  const [busy, setBusy] = React.useState(false);
+  const [files, setFiles] = React.useState<{ id: string; originalName: string; bytes: number; kind: string }[]>([]);
+  const [savedSlug, setSavedSlug] = React.useState<string | null>(existing?.slug ?? null);
+  const zipInput = React.useRef<HTMLInputElement>(null);
+  const coverInput = React.useRef<HTMLInputElement>(null);
+
+  // Keep the local form in step once the catalogue hydrates from the API.
+  React.useEffect(() => {
+    if (!slug || existing) return;
+    if (catalog.status !== "ready") return;
+    const fresh = productBySlug(slug);
+    if (fresh) setSavedSlug(fresh.slug);
+  }, [catalog.status, existing, slug]);
+
+  /** Everything the API accepts, built from the form. */
+  const payload = () => {
+    const priceCents = Math.round((Number(form.price) || 0) * 100);
+    const compareCents = form.compareAt ? Math.round(Number(form.compareAt) * 100) : null;
+    return {
+      name: form.name.trim(),
+      slug: form.slug || undefined,
+      tagline: form.tagline,
+      description: form.description,
+      categorySlug: form.category || undefined,
+      stack: form.stack.split(",").map((s) => s.trim()).filter(Boolean),
+      status: form.status as "published" | "draft" | "review" | "archived",
+      price: priceCents,
+      compareAt: compareCents,
+      free: form.free,
+      featured: form.featured,
+      trending: form.trending,
+      version: form.version,
+      seoTitle: form.seoTitle || undefined,
+      seoDescription: form.seoDescription || undefined,
+      tiers: [
+        { license: "personal" as const, name: "Personal", price: priceCents, compareAt: compareCents, popular: false },
+        { license: "commercial" as const, name: "Commercial", price: Math.round(priceCents * 2.4), popular: true },
+        { license: "extended" as const, name: "Extended", price: Math.round(priceCents * 5) },
+      ],
+      art: {
+        from: art.from,
+        to: art.to,
+        ink: art.ink,
+        kind: art.kind,
+      },
+    };
+  };
+
+  async function save(nextStatus?: string) {
+    if (busy) return;
+    if (!form.name.trim()) {
+      toast.error("Give the product a name first.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const body = { ...payload(), ...(nextStatus ? { status: nextStatus } : {}) };
+      if (savedSlug) {
+        await api.patch(`/admin/products/${savedSlug}`, body);
+        toast.success("Changes saved", { description: `${form.name} · ${body.status}` });
+      } else {
+        const res = await api.post<{ product: { slug: string } }>("/admin/products", body);
+        setSavedSlug(res.product.slug);
+        toast.success("Product created", { description: `${form.name} · ${body.status}` });
+      }
+      await loadCatalog(true);
+      if (!slug) navigate("/admin/products");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not save the product.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function upload(kind: "source" | "image" | "document", file: File | undefined) {
+    if (!file || !savedSlug) {
+      if (!savedSlug) toast.error("Save the product first, then upload files.");
+      return;
+    }
+    const limit = kind === "source" ? 200 : kind === "image" ? 8 : 25;
+    if (file.size > limit * 1024 * 1024) {
+      toast.error(`That file is over the ${limit} MB limit.`);
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/products/${savedSlug}/files?kind=${kind}`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": file.type || "application/octet-stream",
+          "X-Filename": encodeURIComponent(file.name),
+        },
+        body: file,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      setFiles((prev) => [{ ...data.file }, ...prev]);
+      toast.success("Uploaded", { description: `${file.name} · ${(file.size / 1024).toFixed(0)} KB` });
+      await loadCatalog(true);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
   const art = existing?.art ?? { from: "#17392b", to: "#4d8a68", ink: "#eef4e9", kind: "window" as const };
 
   return (
@@ -68,16 +223,19 @@ export default function AdminProductEditor() {
                 </Link>
               </Button>
             )}
-            <Button
-              size="xs"
-              className="h-8"
-              onClick={() => {
-                toast.success(isNew ? "Draft created" : "Changes saved", {
-                  description: `${form.name || "Untitled"} · ${form.status}`,
-                });
-                if (isNew) navigate("/admin/products");
-              }}
-            >
+            {savedSlug && (
+              <Button
+                size="xs"
+                variant="outline"
+                className="h-8"
+                disabled={busy}
+                onClick={() => save(form.status === "published" ? "draft" : "published")}
+              >
+                <Check className="size-3.5" />
+                {form.status === "published" ? "Unpublish" : "Publish"}
+              </Button>
+            )}
+            <Button size="xs" className="h-8" disabled={busy} onClick={() => save()}>
               <Save className="size-3.5" /> {isNew ? "Create draft" : "Save changes"}
             </Button>
           </>
@@ -179,10 +337,57 @@ export default function AdminProductEditor() {
             </TabsContent>
 
             <TabsContent value="media" className="pt-4">
-              <Panel title="Cover & gallery" description="Drag to reorder · first image is the cover" bodyClassName="p-4">
+              <Panel
+                title="Source package"
+                description="Private storage · never served from a public URL"
+                bodyClassName="p-4"
+              >
+                <input
+                  ref={zipInput}
+                  type="file"
+                  accept=".zip,application/zip"
+                  className="hidden"
+                  onChange={(e) => {
+                    void upload("source", e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button variant="outline" size="sm" disabled={busy} onClick={() => zipInput.current?.click()}>
+                    <Upload className="size-3.5" /> Upload .zip
+                  </Button>
+                  <span className="text-[0.625rem] text-ink-3">Max 200 MB · validated as a real archive</span>
+                </div>
+                {files.length > 0 && (
+                  <ul className="mt-3 divide-y divide-line rounded-sm border border-line">
+                    {files.map((f) => (
+                      <li key={f.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                        <span className="truncate font-mono text-[0.6875rem]">{f.originalName}</span>
+                        <span className="shrink-0 text-[0.625rem] text-ink-3">{(f.bytes / 1024).toFixed(0)} KB</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Panel>
+
+              <Panel title="Cover & gallery" description="First image is the cover" bodyClassName="p-4">
+                <input
+                  ref={coverInput}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/avif"
+                  className="hidden"
+                  onChange={(e) => {
+                    void upload("image", e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <div className="relative col-span-2 row-span-2 overflow-hidden rounded-md border border-line">
-                    <ProductArt {...art} className="aspect-[16/10] w-full" />
+                    {existing?.art?.src ? (
+                      <img src={existing.art.src} alt="" className="aspect-[16/10] w-full object-cover" />
+                    ) : (
+                      <ProductArt {...art} className="aspect-[16/10] w-full" />
+                    )}
                     <span className="absolute left-2 top-2">
                       <Badge variant="solid" size="sm">
                         Cover
@@ -197,7 +402,11 @@ export default function AdminProductEditor() {
                       </button>
                     </div>
                   ))}
-                  <button className="grid aspect-square place-items-center rounded-md border border-dashed border-line-strong text-ink-3 transition-colors hover:border-accent hover:text-accent">
+                  <button
+                    type="button"
+                    onClick={() => coverInput.current?.click()}
+                    className="grid aspect-square place-items-center rounded-md border border-dashed border-line-strong text-ink-3 transition-colors hover:border-accent hover:text-accent"
+                  >
                     <div className="text-center">
                       <ImageIcon className="mx-auto size-4" />
                       <span className="mt-1 block text-[0.5625rem]">Upload</span>

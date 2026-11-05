@@ -54,7 +54,7 @@ export function AdminLogin() {
   return (
     <div className="grid min-h-dvh bg-paper text-ink lg:grid-cols-[1fr_480px]">
       {/* left: quiet brand panel, matching the storefront's editorial voice */}
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-forest p-10 text-paper lg:flex">
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-brand p-10 text-brand-ink lg:flex">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 opacity-[0.16]"
@@ -63,10 +63,10 @@ export function AdminLogin() {
               "radial-gradient(circle at 20% 15%, #DFE9DC 0, transparent 45%), radial-gradient(circle at 85% 80%, #C0592B 0, transparent 40%)",
           }}
         />
-        <Link to="/" className="relative flex items-center gap-2.5 text-paper">
+        <Link to="/" className="relative flex items-center gap-2.5 text-brand-ink">
           <KilnMark className="size-5" />
           <span className="font-display text-lg tracking-tight">Kiln</span>
-          <span className="ml-2 rounded-sm border border-paper/25 px-1.5 py-0.5 text-[0.5625rem] uppercase tracking-[0.18em] text-paper/70">
+          <span className="ml-2 rounded-sm border border-brand-ink/25 px-1.5 py-0.5 text-[0.5625rem] uppercase tracking-[0.18em] text-brand-ink/70">
             Console
           </span>
         </Link>
@@ -75,13 +75,13 @@ export function AdminLogin() {
           <p className="font-display text-3xl leading-[1.15] tracking-tight">
             One studio. One catalogue. Everything published from here.
           </p>
-          <p className="mt-4 text-sm leading-relaxed text-paper/70">
+          <p className="mt-4 text-sm leading-relaxed text-brand-ink/70">
             Source packages, versions and licences are served only through short-lived signed links. This console is
             restricted to the studio owner.
           </p>
         </div>
 
-        <div className="relative flex items-center gap-2 text-[0.6875rem] text-paper/55">
+        <div className="relative flex items-center gap-2 text-[0.6875rem] text-brand-ink/55">
           <ShieldCheck className="size-3.5" />
           Admin sessions expire after 8 hours. Two-factor is required once enrolled.
         </div>

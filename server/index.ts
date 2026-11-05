@@ -24,16 +24,34 @@ import { UPLOAD_LIMITS } from "./lib/storage";
 import { sql } from "drizzle-orm";
 
 const app = new Hono();
+const isProd = process.env.NODE_ENV === "production";
 
 app.use("*", logger());
-app.use("*", secureHeaders({ crossOriginResourcePolicy: "cross-origin" }));
+/**
+ * Security headers, tuned for how this app is actually served.
+ *
+ * The storefront runs inside the preview frame in development, so framing and
+ * isolation headers have to stay permissive there — a strict COOP/XFO makes the
+ * browser tear down the frame on the first cross-origin-ish navigation, which
+ * looks like "the login button reloads the page". In production we lock the
+ * admin console down properly.
+ */
+app.use(
+  "*",
+  secureHeaders({
+    crossOriginResourcePolicy: "cross-origin",
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: isProd ? "same-origin" : false,
+    xFrameOptions: isProd ? "SAMEORIGIN" : false,
+    strictTransportSecurity: isProd ? "max-age=15552000; includeSubDomains" : false,
+  }),
+);
 
 /**
  * In development the Vite origin and the preview proxy origin both hit this
  * server. Credentials are required for the session cookies, so the origin is
  * echoed rather than wildcarded (a wildcard is illegal with credentials).
  */
-const isProd = process.env.NODE_ENV === "production";
 app.use(
   "/api/*",
   cors({

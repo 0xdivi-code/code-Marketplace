@@ -13,6 +13,18 @@ export default defineConfig({
     port: 5173,
     strictPort: false,
     allowedHosts: true,
+    watch: {
+      // The embedded database and private upload storage live inside the repo.
+      // Without this, every write — including the session row inserted when you
+      // sign in — is a "file change" and Vite hard-reloads the page mid-request.
+      ignored: [
+        "**/.data/**",
+        "**/.git/**",
+        "**/scripts/**",
+        "**/server/**",
+        "**/dist/**",
+      ],
+    },
     proxy: {
       // One origin in the browser: the dev server proxies API calls to Hono.
       // This keeps auth cookies first-party and mirrors production exactly.

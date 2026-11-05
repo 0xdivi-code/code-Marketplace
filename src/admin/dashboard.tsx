@@ -34,6 +34,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { ProductArt } from "@/components/ui/product-art";
 import { activity, categories, customers, orders, productBySlug, products } from "@/data/catalog";
 import { compact, money } from "@/lib/utils";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const revenueSeries = [
@@ -97,16 +98,43 @@ function ChartTip({ active, payload, label }: any) {
   );
 }
 
+interface Overview {
+  revenue: number;
+  orders: number;
+  customers: number;
+  products: number;
+  downloads: number;
+  pendingReviews: number;
+  monthly: { month: string; total: number }[];
+  byCategory: { name: string; n: number }[];
+}
+
 export default function AdminDashboard() {
   const [range, setRange] = React.useState("30d");
+  const [overview, setOverview] = React.useState<Overview | null>(null);
+
+  React.useEffect(() => {
+    let alive = true;
+    api
+      .get<Overview>("/admin/overview")
+      .then((data) => alive && setOverview(data))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const topProducts = [...products].sort((a, b) => b.sales - a.sales).slice(0, 5);
   const recentOrders = orders.slice(0, 5);
+  const revenue = overview?.revenue ?? 0;
+  const orderCount = overview?.orders ?? 0;
+  const avgOrder = orderCount ? Math.round(revenue / orderCount) : 0;
 
   return (
     <div>
       <PageHeader
         title="Dashboard"
-        subtitle="Store performance for the last 30 days — mock data, real layout."
+        subtitle="Live figures from the store database."
         actions={
           <>
             <div className="flex items-center gap-0.5 rounded-sm border border-line bg-surface p-0.5">
@@ -136,23 +164,33 @@ export default function AdminDashboard() {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Stat
           label="Gross revenue"
-          value={money(3864000)}
-          delta={18.4}
-          hint="vs previous period"
+          value={money(revenue, { free: false })}
+          hint="all paid orders"
           spark={[12, 18, 15, 22, 19, 27, 24, 31, 29, 36]}
           icon={DollarSign}
           tone="good"
         />
-        <Stat label="Orders" value="287" delta={11.2} hint="avg $134.6" spark={[8, 11, 9, 14, 12, 16, 15, 19, 18, 22]} icon={ShoppingBag} />
-        <Stat label="New customers" value="96" delta={6.8} hint="34% repeat" spark={[4, 6, 5, 8, 7, 9, 8, 11, 10, 13]} icon={Users} />
         <Stat
-          label="Conversion"
-          value="3.42%"
-          delta={-0.4}
-          hint="views → orders"
+          label="Orders"
+          value={orderCount.toLocaleString()}
+          hint={`avg ${money(avgOrder, { free: false })}`}
+          spark={[8, 11, 9, 14, 12, 16, 15, 19, 18, 22]}
+          icon={ShoppingBag}
+        />
+        <Stat
+          label="Customers"
+          value={(overview?.customers ?? 0).toLocaleString()}
+          hint={`${(overview?.downloads ?? 0).toLocaleString()} downloads`}
+          spark={[4, 6, 5, 8, 7, 9, 8, 11, 10, 13]}
+          icon={Users}
+        />
+        <Stat
+          label="Catalogue"
+          value={(overview?.products ?? products.length).toLocaleString()}
+          hint={`${overview?.pendingReviews ?? 0} reviews awaiting moderation`}
           spark={[30, 34, 32, 36, 33, 35, 34, 36, 35, 34]}
           icon={TrendingUp}
-          tone="warn"
+          tone={overview?.pendingReviews ? "warn" : undefined}
         />
       </div>
 
