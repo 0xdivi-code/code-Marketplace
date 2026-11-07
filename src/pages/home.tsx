@@ -497,9 +497,30 @@ function Hero({ onSearch }: { onSearch: () => void }) {
     primaryHref?: string;
     secondaryCta?: string;
     secondaryHref?: string;
+    /** uploaded hero image; falls back to the designed studio photo */
+    image?: string;
+    imageAlt?: string;
+    /** caption badge over the image (bottom-right; the left strip is covered
+        by the floating Lighthouse card, so it is not owner-editable) */
+    captionTag?: string;
+    badge?: string;
   };
   const DEFAULT_HEADLINE = "Production-ready code you can read.";
   const headline = hero.headline?.trim() || DEFAULT_HEADLINE;
+
+  /*
+   * Hero image and its caption.
+   *
+   * The designed studio photo stays the fallback: an owner who has uploaded
+   * nothing gets the page exactly as it shipped, and clearing the field in the
+   * admin restores it rather than leaving a hole.
+   */
+  const heroImage = hero.image?.trim() || "/img/hero-studio.jpg";
+  const heroImageWebp = hero.image?.trim() || "/img/hero-studio.webp";
+  const heroAlt =
+    hero.imageAlt?.trim() || "A calm desk with a laptop showing a Kiln dashboard template";
+  const captionTag = hero.captionTag?.trim() || "TypeScript";
+  const badge = hero.badge?.trim() || "v6 release week · 14 new files";
   // The designed hero breaks the default sentence across three lines with an
   // animated word slot. Custom copy is rendered verbatim so the studio's
   // wording is never mangled by that layout.
@@ -523,7 +544,7 @@ function Hero({ onSearch }: { onSearch: () => void }) {
             >
               <Badge variant="outline" size="lg" className="gap-1.5 border-line-strong">
                 <span className="size-1.5 rounded-full bg-emerald-500" />
-                v6 release week · 14 new files
+                {badge}
               </Badge>
               <Link
                 to="/browse?sort=newest"
@@ -632,10 +653,13 @@ function Hero({ onSearch }: { onSearch: () => void }) {
           >
             <div className="relative overflow-hidden rounded-lg border border-line bg-surface shadow-pop">
               <picture>
-                <source srcSet="/img/hero-studio.webp" type="image/webp" />
+                {/* Only the shipped asset has a webp sibling; an uploaded image
+                    is served as-is from /api/assets, so offering a second source
+                    would just be a request that 404s. */}
+                {!hero.image?.trim() && <source srcSet={heroImageWebp} type="image/webp" />}
                 <img
-                  src="/img/hero-studio.jpg"
-                  alt="A calm desk with a laptop showing a Kiln dashboard template"
+                  src={heroImage}
+                  alt={heroAlt}
                   className="aspect-[4/3] w-full object-cover"
                   /* Above the fold: load eagerly and tell the browser the size
                      up front so it reserves the box and does not shift. */
@@ -646,15 +670,16 @@ function Hero({ onSearch }: { onSearch: () => void }) {
                   height={768}
                 />
               </picture>
-              <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-[#14120f]/85 via-[#14120f]/35 to-transparent p-4">
-                <div>
-                  <p className="label-mono text-[0.5rem] text-white/60">Featured file</p>
-                  <p className="mt-0.5 font-display text-[1.05rem] text-white">
-                    Forge — SaaS Starter 4.2
-                  </p>
-                </div>
+              {/*
+                * The designed caption strip (label + filename) is gone on
+                * purpose: the floating Lighthouse card overlaps that corner at
+                * every breakpoint, so the copy would never be readable. Only
+                * the badge — which sits clear of it — stays, and it is the
+                * only part of the strip the admin exposes.
+                */}
+              <div className="absolute inset-x-0 bottom-0 flex items-end justify-end bg-gradient-to-t from-[#14120f]/60 to-transparent p-4">
                 <Badge variant="glass" size="sm">
-                  TypeScript
+                  {captionTag}
                 </Badge>
               </div>
             </div>

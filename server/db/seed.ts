@@ -552,10 +552,14 @@ export async function seed({ log = true, force = false }: { log?: boolean; force
     hero: {
       headline: "Production-ready code you can read.",
       sub: "Starters, dashboards and developer tools from a three-person studio.",
-      primaryCta: "Browse all code",
-      primaryHref: "/browse",
-      secondaryCta: "See free items",
-      secondaryHref: "/free",
+      // the hero's buttons are not part of the design (it uses a search field),
+      // so only the fields the storefront actually renders are seeded
+      badge: "v6 release week · 14 new files",
+      image: "",
+      imageAlt: "A calm desk with a laptop showing a Kiln dashboard template",
+      // the image's filename strip is part of the design and is covered by the
+      // floating Lighthouse card, so only the visible badge is settable
+      captionTag: "TypeScript",
     },
   };
   for (const [key, value] of Object.entries(defaults)) {

@@ -30,19 +30,35 @@ interface Announcement {
 interface HeroCopy {
   headline: string;
   sub: string;
+  /** uploaded image URL; empty means the designed studio photo */
+  image: string;
+  imageAlt: string;
+  captionTag: string;
+  badge: string;
 }
+
+const EMPTY_HERO: HeroCopy = {
+  headline: "",
+  sub: "",
+  image: "",
+  imageAlt: "",
+  captionTag: "",
+  badge: "",
+};
 
 export default function AdminBanners() {
   const [device, setDevice] = React.useState("desktop");
   const [sections, setSections] = React.useState<Section[]>([]);
   const [announcements, setAnnouncements] = React.useState<Announcement[]>([]);
-  const [hero, setHero] = React.useState<HeroCopy>({ headline: "", sub: "" });
+  const [hero, setHero] = React.useState<HeroCopy>(EMPTY_HERO);
   const [loading, setLoading] = React.useState(true);
   const [dirty, setDirty] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [newText, setNewText] = React.useState("");
   const headline = hero.headline;
   const sub = hero.sub;
+  const heroImageInput = React.useRef<HTMLInputElement>(null);
+  const [uploadingImage, setUploadingImage] = React.useState(false);
 
   const load = React.useCallback(async () => {
     try {
@@ -54,10 +70,7 @@ export default function AdminBanners() {
       setSections(res.sections);
       setAnnouncements(res.announcements);
       const stored = (res.settings.hero ?? {}) as Partial<HeroCopy>;
-      setHero({
-        headline: stored.headline ?? "Production-ready code you can read.",
-        sub: stored.sub ?? "",
-      });
+      setHero({ ...EMPTY_HERO, ...stored });
       setDirty(false);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Could not load the homepage.");
@@ -87,11 +100,49 @@ export default function AdminBanners() {
     try {
       await api.patch("/admin/settings", { values: { hero: { ...hero } } });
       setDirty(false);
-      toast.success("Hero copy saved", { description: "Live on the storefront now." });
+      toast.success("Hero saved", { description: "Live on the storefront now." });
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Could not save the hero copy.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  /**
+   * Upload the hero image.
+   *
+   * Posts to the generic site-image endpoint, which stores the file and writes
+   * its public URL into the `heroImage` setting. A separate PATCH then records
+   * it on the hero object so the copy and the picture save together.
+   */
+  async function uploadHeroImage(file: File | undefined) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("That is not an image.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Images are capped at 8 MB.");
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      const body = new FormData();
+      body.append("file", file, file.name);
+      const res = await fetch("/api/admin/settings/heroImage/image", {
+        method: "POST",
+        credentials: "include",
+        body,
+      });
+      const data = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Upload failed");
+      setHero((h) => ({ ...h, image: data.url! }));
+      setDirty(true);
+      toast.success("Image uploaded", { description: "Save to publish it." });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setUploadingImage(false);
     }
   }
 
@@ -285,15 +336,20 @@ export default function AdminBanners() {
           </Panel>
 
           <div className="grid gap-3 lg:grid-cols-2">
-            <Panel title="Hero copy" bodyClassName="space-y-3 p-4">
-              <Field label="Headline" htmlFor="hl">
-                <Input
+            <Panel
+              title="Hero"
+              description="The first thing every visitor reads"
+              bodyClassName="space-y-3 p-4"
+            >
+              <Field label="Headline" htmlFor="hl" hint="Line breaks are preserved.">
+                <Textarea
                   id="hl"
                   value={headline}
                   onChange={(e) => {
                     setHero((h) => ({ ...h, headline: e.target.value }));
                     setDirty(true);
                   }}
+                  className="min-h-16"
                 />
               </Field>
               <Field label="Subheadline" htmlFor="sub">
@@ -307,6 +363,109 @@ export default function AdminBanners() {
                   className="min-h-16"
                 />
               </Field>
+              <Field label="Badge" htmlFor="badge" hint="The small pill above the headline. Clear it to hide.">
+                <Input
+                  id="badge"
+                  value={hero.badge}
+                  onChange={(e) => {
+                    setHero((h) => ({ ...h, badge: e.target.value }));
+                    setDirty(true);
+                  }}
+                />
+              </Field>
+
+            </Panel>
+
+            <Panel
+              title="Hero image"
+              description="Shown beside the headline"
+              bodyClassName="space-y-3 p-4"
+            >
+              <input
+                ref={heroImageInput}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/avif"
+                className="hidden"
+                onChange={(e) => {
+                  void uploadHeroImage(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+
+              <div className="relative overflow-hidden rounded-md border border-line">
+                <img
+                  src={hero.image || "/img/hero-studio.jpg"}
+                  alt=""
+                  className="aspect-[4/3] w-full object-cover"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = "/img/hero-studio.jpg";
+                  }}
+                />
+                {hero.image && (
+                  <span className="absolute left-2 top-2">
+                    <Badge variant="solid" size="sm">
+                      Uploaded
+                    </Badge>
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={uploadingImage}
+                  onClick={() => heroImageInput.current?.click()}
+                >
+                  {uploadingImage ? "Uploading…" : hero.image ? "Replace image" : "Upload image"}
+                </Button>
+                {hero.image && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setHero((h) => ({ ...h, image: "" }));
+                      setDirty(true);
+                    }}
+                  >
+                    Reset to default
+                  </Button>
+                )}
+              </div>
+              <p className="text-[0.625rem] leading-relaxed text-ink-3">
+                PNG, JPEG, WebP or AVIF, up to 8 MB. Without an upload the designed studio photo is
+                used, so clearing this never leaves a gap.
+              </p>
+
+              <Field label="Alt text" htmlFor="ialt" hint="Describe the image for screen readers.">
+                <Input
+                  id="ialt"
+                  value={hero.imageAlt}
+                  onChange={(e) => {
+                    setHero((h) => ({ ...h, imageAlt: e.target.value }));
+                    setDirty(true);
+                  }}
+                />
+              </Field>
+
+              <div className="border-t border-line pt-3">
+                <p className="mb-2 text-[0.6875rem] font-medium">Badge on the image</p>
+                <p className="-mt-1 mb-2 text-[0.625rem] text-ink-3">Bottom-right of the photo. The filename strip is set by the design and sits under the floating card, so it is not editable.</p>
+                <div className="space-y-2">
+                  <Field label="Tag" htmlFor="ctag">
+                    <Input
+                      id="ctag"
+                      value={hero.captionTag}
+                      onChange={(e) => {
+                        setHero((h) => ({ ...h, captionTag: e.target.value }));
+                        setDirty(true);
+                      }}
+                    />
+                  </Field>
+                </div>
+              </div>
             </Panel>
 
             <Panel title="How this works" bodyClassName="space-y-2 p-4 text-[0.6875rem] leading-relaxed text-ink-2">
@@ -315,8 +474,13 @@ export default function AdminBanners() {
                 visitor — the page reads this list on load.
               </p>
               <p>
-                Hero copy saves to the <code className="font-mono text-[0.625rem]">hero</code> store setting
-                the homepage renders, so a sentence change goes live without a deploy.
+                Hero text and image save to the{" "}
+                <code className="font-mono text-[0.625rem]">hero</code> store setting the homepage
+                reads, so a change goes live without a deploy.
+              </p>
+              <p>
+                Empty fields fall back to the designed defaults rather than rendering blank, so you
+                can clear any of them safely.
               </p>
             </Panel>
           </div>

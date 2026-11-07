@@ -191,14 +191,24 @@ export default function AdminProductEditor() {
     }
     setBusy(true);
     try {
+      // Source archives stream raw (200 MB never sits in memory); images and
+      // documents go multipart, which is what readUpload parses.
+      const isStream = kind === "source";
+      const body = isStream ? file : (() => {
+        const fd = new FormData();
+        fd.append("file", file, file.name);
+        return fd;
+      })();
       const res = await fetch(`/api/admin/products/${savedSlug}/files?kind=${kind}`, {
         method: "POST",
         credentials: "include",
-        headers: {
-          "Content-Type": file.type || "application/octet-stream",
-          "X-Filename": encodeURIComponent(file.name),
-        },
-        body: file,
+        headers: isStream
+          ? {
+              "Content-Type": file.type || "application/octet-stream",
+              "X-Filename": encodeURIComponent(file.name),
+            }
+          : undefined,
+        body,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Upload failed");
