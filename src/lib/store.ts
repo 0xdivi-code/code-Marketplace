@@ -214,7 +214,7 @@ interface WishlistState {
 export const useWishlist = create<WishlistState>()(
   persist(
     (set, get) => ({
-      slugs: ["beacon-analytics", "ledger-billing"],
+      slugs: ["forge-saas-starter", "relay-api"],
       toggle: (slug) =>
         set({
           slugs: get().slugs.includes(slug)

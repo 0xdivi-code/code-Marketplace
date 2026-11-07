@@ -169,11 +169,11 @@ export default function DashboardPage() {
               Ledger 1.1 goes well with Forge
             </h2>
             <p className="mt-1.5 text-[0.75rem] leading-relaxed text-brand-ink/70">
-              You own Forge — Ledger plugs into it with a documented adapter and keeps your existing
-              invoices intact.
+              You own Forge. Every product in the studio is built to the same standard, and updates
+              land in your library at no cost.
             </p>
             <Button asChild variant="accent" size="sm" className="mt-3.5">
-              <Link to="/item/ledger-billing">
+              <Link to="/item/forge-saas-starter">
                 Take a look <ArrowRight className="size-3.5" />
               </Link>
             </Button>

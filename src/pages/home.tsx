@@ -135,7 +135,7 @@ return (
           <SectionHeading
             eyebrow="Explore"
             title="Shop by category"
-            description="Eight shelves, one standard. Everything is built to be read, extended and shipped."
+            description="One standard, every shelf. Everything is built to be read, extended and shipped."
             action={
               <Button asChild variant="outline" size="sm">
                 <Link to="/browse">
@@ -144,14 +144,29 @@ return (
               </Button>
             }
           />
-          <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 lg:grid-cols-8">
+          {/*
+           * One row, always. The count is not fixed — shelves come and go as the
+           * catalogue changes — so this is a horizontal strip rather than a grid
+           * that wraps and silently becomes two rows on a narrow screen.
+           *
+           * Every tile shares the same width, which is what makes it read as one
+           * line: below sm they are narrow enough that five or six fit a phone,
+           * and the strip scrolls sideways if they do not. Above sm the same
+           * tiles are wide enough to fill the container, so on desktop the row
+           * simply fits with no scrolling and no scrollbar.
+           */}
+          <div className="mt-8 -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:gap-4 sm:overflow-visible sm:px-0 sm:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {categories.map((c, i) => (
-              <CategoryTile
+              <div
                 key={c.slug}
-                category={c}
-                count={products.filter((p) => p.category === c.slug).length}
-                index={i}
-              />
+                className="w-[8.5rem] shrink-0 snap-start sm:w-auto sm:min-w-0 sm:flex-1"
+              >
+                <CategoryTile
+                  category={c}
+                  count={products.filter((p) => p.category === c.slug).length}
+                  index={i}
+                />
+              </div>
             ))}
           </div>
         </section>
