@@ -534,8 +534,8 @@ export async function seed({ log = true, force = false }: { log?: boolean; force
   const existingAnnouncement = await db.select({ id: t.announcements.id }).from(t.announcements).limit(1);
   if (!existingAnnouncement.length) {
     await db.insert(t.announcements).values({
-      text: "New drop: Ledger — Billing Engine v1.1 — usage metering, invoices and dunning.",
-      href: "/item/ledger-billing",
+      text: "New drop: Moonsale Launchpad — token creation, presales and swaps in one dashboard.",
+      href: "/item/moonsale-launchpad",
       active: true,
       position: 0,
     });
@@ -571,7 +571,7 @@ export async function seed({ log = true, force = false }: { log?: boolean; force
 
   // A starter bundle, so the storefront, checkout and the admin screen all
   // have real data to work with on a fresh install.
-  const starterSlugs = ["lattice-admin", "relay-api", "gatehouse-auth"];
+  const starterSlugs = ["forge-saas-starter", "relay-api", "pocket-expo"];
   const starterProducts = await db
     .select({ id: t.products.id, slug: t.products.slug, price: t.products.price })
     .from(t.products);
@@ -585,9 +585,9 @@ export async function seed({ log = true, force = false }: { log?: boolean; force
       .values({
         slug: "full-stack-launch",
         name: "Full-stack Launch Kit",
-        tagline: "Admin console, API and auth — the whole back office in one buy.",
+        tagline: "A SaaS starter, a typed API and a mobile shell — the whole stack in one buy.",
         description:
-          "Three products that are designed to run together: a data-dense admin console, a typed API layer and passwordless authentication. Buy them as a set and save against the individual prices.",
+          "Three products designed to run together: a production-ready SaaS starter, a typed API layer and a mobile shell. Buy them as a set and save against the individual prices.",
         // 35% off, rounded to the nearest dollar.
         price: Math.round((separate * 0.65) / 100) * 100,
         compareAt: separate,

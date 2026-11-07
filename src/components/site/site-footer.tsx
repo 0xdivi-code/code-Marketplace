@@ -21,10 +21,11 @@ const groups = [
     title: "Categories",
     links: [
       { label: "SaaS Starters", to: "/category/saas-starters" },
-      { label: "Admin Dashboards", to: "/category/admin-dashboards" },
-      { label: "UI Kits", to: "/category/ui-kits" },
       { label: "API & Backends", to: "/category/api-backends" },
-      { label: "Dev Tooling", to: "/category/dev-tooling" },
+      { label: "Mobile Starters", to: "/category/mobile-starters" },
+      { label: "Free Code", to: "/category/free-code" },
+      { label: "Casino & Gaming", to: "/category/casino-gaming" },
+      { label: "Crypto & Launchpads", to: "/category/crypto-launchpad" },
     ],
   },
   {

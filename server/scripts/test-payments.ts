@@ -144,7 +144,7 @@ await test("an unpaid order cannot be downloaded", async () => {
 });
 
 await test("a paid order unlocks exactly one licence", async () => {
-  const { number } = await paidOrder(customer, "lattice-admin", "extended");
+  const { number } = await paidOrder(customer, "dubs-casino", "extended");
   const order = await json(`/api/account/orders/${number}`, { cookie: customer });
   assert.equal((order.body!.order as { status: string }).status, "paid");
 
@@ -155,7 +155,7 @@ await test("a paid order unlocks exactly one licence", async () => {
 });
 
 await test("replaying a payment webhook never double-grants", async () => {
-  const { number, ref } = await paidOrder(customer, "quill-cms", "personal");
+  const { number, ref } = await paidOrder(customer, "shuffle-casino", "personal");
   const db = getDb();
   const [order] = await db.select().from(t.orders).where(eq(t.orders.number, number)).limit(1);
   const before = (await db.select().from(t.licenses).where(eq(t.licenses.orderId, order.id))).length;
@@ -174,7 +174,7 @@ await test("an expired invoice closes the order and mints nothing", async () => 
     method: "POST",
     cookie: customer,
     body: JSON.stringify({
-      lines: [{ slug: "gatehouse-auth", license: "personal", quantity: 1 }],
+      lines: [{ slug: "minebit-casino", license: "personal", quantity: 1 }],
       idempotencyKey: `exp-${Date.now()}`,
     }),
   });
@@ -188,7 +188,7 @@ await test("an expired invoice closes the order and mints nothing", async () => 
   assert.equal(exp.status, 200);
   const order = await json(`/api/account/orders/${number}`, { cookie: customer });
   assert.equal((order.body!.order as { status: string }).status, "cancelled");
-  const dl = await json("/api/account/download/gatehouse-auth", { method: "POST", cookie: customer });
+  const dl = await json("/api/account/download/minebit-casino", { method: "POST", cookie: customer });
   assert.equal(dl.status, 403);
 });
 
@@ -197,7 +197,7 @@ await test("a failed payment never settles", async () => {
     method: "POST",
     cookie: customer,
     body: JSON.stringify({
-      lines: [{ slug: "beacon-analytics", license: "personal", quantity: 1 }],
+      lines: [{ slug: "whale-casino", license: "personal", quantity: 1 }],
       idempotencyKey: `fail-${Date.now()}`,
     }),
   });
@@ -217,7 +217,7 @@ await test("an underpayment is recorded but never unlocks", async () => {
     method: "POST",
     cookie: customer,
     body: JSON.stringify({
-      lines: [{ slug: "ledger-billing", license: "personal", quantity: 1 }],
+      lines: [{ slug: "kings-casino", license: "personal", quantity: 1 }],
       idempotencyKey: `under-${Date.now()}`,
     }),
   });
@@ -232,8 +232,8 @@ await test("an underpayment is recorded but never unlocks", async () => {
 });
 
 await test("a download token works without a cookie and is capped at 3 uses", async () => {
-  await paidOrder(customer, "beacon-analytics", "personal");
-  const mint = await json("/api/account/download/beacon-analytics", { method: "POST", cookie: customer });
+  await paidOrder(customer, "whale-casino", "personal");
+  const mint = await json("/api/account/download/whale-casino", { method: "POST", cookie: customer });
   assert.equal(mint.status, 200, JSON.stringify(mint.body));
   const url = mint.body!.url as string;
 
@@ -268,7 +268,7 @@ await test("a refund revokes a token minted before it", async () => {
 });
 
 await test("refunding twice is refused", async () => {
-  const { number } = await paidOrder(customer, "kiln-ui", "commercial");
+  const { number } = await paidOrder(customer, "dustbit-casino", "commercial");
   const first = await json(`/api/admin/orders/${number}/refund`, {
     method: "POST",
     cookie: admin,
@@ -288,7 +288,7 @@ await test("a pending order cannot be refunded", async () => {
     method: "POST",
     cookie: customer,
     body: JSON.stringify({
-      lines: [{ slug: "carbon-cli", license: "personal", quantity: 1 }],
+      lines: [{ slug: "moonsale-launchpad", license: "personal", quantity: 1 }],
       idempotencyKey: `pend-${Date.now()}`,
     }),
   });
@@ -306,7 +306,7 @@ await test("a rejected coupon charges full price", async () => {
   const q = await json("/api/account/quote", {
     method: "POST",
     body: JSON.stringify({
-      lines: [{ slug: "lattice-admin", license: "personal", quantity: 1 }],
+      lines: [{ slug: "dubs-casino", license: "personal", quantity: 1 }],
       coupon: "WELCOME10",
     }),
   });
@@ -324,7 +324,7 @@ await test("a fixed coupon is capped at its face value", async () => {
   const q = await json("/api/account/quote", {
     method: "POST",
     body: JSON.stringify({
-      lines: [{ slug: "lattice-admin", license: "developer", quantity: 1 }],
+      lines: [{ slug: "dubs-casino", license: "developer", quantity: 1 }],
       coupon: "TEST25",
     }),
   });
@@ -337,12 +337,12 @@ await test("a product-scoped coupon rejects an unrelated cart", async () => {
   await json("/api/admin/coupons", {
     method: "POST",
     cookie: admin,
-    body: JSON.stringify({ code: "ONLYCARBON", kind: "percent", value: 50, limit: 5, productSlug: "carbon-cli" }),
+    body: JSON.stringify({ code: "ONLYCARBON", kind: "percent", value: 50, limit: 5, productSlug: "moonsale-launchpad" }),
   });
   const wrong = await json("/api/account/quote", {
     method: "POST",
     body: JSON.stringify({
-      lines: [{ slug: "lattice-admin", license: "personal", quantity: 1 }],
+      lines: [{ slug: "dubs-casino", license: "personal", quantity: 1 }],
       coupon: "ONLYCARBON",
     }),
   });
@@ -350,7 +350,7 @@ await test("a product-scoped coupon rejects an unrelated cart", async () => {
   const right = await json("/api/account/quote", {
     method: "POST",
     body: JSON.stringify({
-      lines: [{ slug: "carbon-cli", license: "personal", quantity: 1 }],
+      lines: [{ slug: "moonsale-launchpad", license: "personal", quantity: 1 }],
       coupon: "ONLYCARBON",
     }),
   });
@@ -366,7 +366,7 @@ await test("a minimum-spend coupon is refused below the threshold", async () => 
   const small = await json("/api/account/quote", {
     method: "POST",
     body: JSON.stringify({
-      lines: [{ slug: "carbon-cli", license: "personal", quantity: 1 }],
+      lines: [{ slug: "moonsale-launchpad", license: "personal", quantity: 1 }],
       coupon: "BIGSPEND",
     }),
   });
@@ -375,7 +375,7 @@ await test("a minimum-spend coupon is refused below the threshold", async () => 
   const big = await json("/api/account/quote", {
     method: "POST",
     body: JSON.stringify({
-      lines: [{ slug: "lattice-admin", license: "developer", quantity: 1 }],
+      lines: [{ slug: "dubs-casino", license: "developer", quantity: 1 }],
       coupon: "BIGSPEND",
     }),
   });
@@ -386,7 +386,7 @@ await test("a minimum-spend coupon is refused below the threshold", async () => 
 });
 
 await test("a live sale price is what the server charges", async () => {
-  const patch = await json("/api/admin/products/carbon-cli", {
+  const patch = await json("/api/admin/products/moonsale-launchpad", {
     method: "PATCH",
     cookie: admin,
     body: JSON.stringify({ salePrice: 2900, saleEndsAt: "2099-01-01" }),
@@ -395,7 +395,7 @@ await test("a live sale price is what the server charges", async () => {
 
   const q = await json("/api/account/quote", {
     method: "POST",
-    body: JSON.stringify({ lines: [{ slug: "carbon-cli", license: "personal", quantity: 1 }] }),
+    body: JSON.stringify({ lines: [{ slug: "moonsale-launchpad", license: "personal", quantity: 1 }] }),
   });
   assert.equal(q.body!.total, 2900, "the sale price was not charged");
   const line = (q.body!.lines as { saleApplied: boolean }[])[0];
@@ -403,17 +403,19 @@ await test("a live sale price is what the server charges", async () => {
 });
 
 await test("an ended sale charges list price again", async () => {
-  await json("/api/admin/products/carbon-cli", {
+  await json("/api/admin/products/moonsale-launchpad", {
     method: "PATCH",
     cookie: admin,
     body: JSON.stringify({ salePrice: 2900, saleEndsAt: "2020-01-01" }),
   });
   const q = await json("/api/account/quote", {
     method: "POST",
-    body: JSON.stringify({ lines: [{ slug: "carbon-cli", license: "personal", quantity: 1 }] }),
+    body: JSON.stringify({ lines: [{ slug: "moonsale-launchpad", license: "personal", quantity: 1 }] }),
   });
   assert.equal((q.body!.lines as { saleApplied: boolean }[])[0].saleApplied, false);
-  assert.equal(q.body!.total, 4900);
+  // moonsale-launchpad lists at $279; the assertion tracks that price, not the
+  // deleted product this test used to buy
+  assert.equal(q.body!.total, 27900, "should fall back to the list price");
 });
 
 await test("a signature-rejected webhook is logged, not applied", async () => {
@@ -421,7 +423,7 @@ await test("a signature-rejected webhook is logged, not applied", async () => {
     method: "POST",
     cookie: customer,
     body: JSON.stringify({
-      lines: [{ slug: "gatehouse-auth", license: "personal", quantity: 1 }],
+      lines: [{ slug: "minebit-casino", license: "personal", quantity: 1 }],
       idempotencyKey: `sig-${Date.now()}`,
     }),
   });
@@ -460,7 +462,7 @@ await test("a bundle prices below its members and grants every licence", async (
       slug: "test-bundle",
       name: "Test Bundle",
       price: 99,
-      products: ["lattice-admin", "relay-api"],
+      products: ["dubs-casino", "relay-api"],
     }),
   });
   assert.equal(created.status, 201, JSON.stringify(created.body));
@@ -480,7 +482,7 @@ await test("buying a bundle delivers both products", async () => {
   const bought = await paidOrder(customer, "test-bundle", "personal");
   const lib = await json("/api/account/library", { cookie: customer });
   const slugs = (lib.body!.library as { slug: string }[]).map((i) => i.slug);
-  assert.ok(slugs.includes("lattice-admin"), "lattice-admin missing from library");
+  assert.ok(slugs.includes("dubs-casino"), "dubs-casino missing from library");
   assert.ok(slugs.includes("relay-api"), "relay-api missing from library");
 
   const order = await json(`/api/account/orders/${bought.number}`, { cookie: customer });
