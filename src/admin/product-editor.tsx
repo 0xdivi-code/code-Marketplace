@@ -221,7 +221,7 @@ export default function AdminProductEditor() {
       setBusy(false);
     }
   }
-  const art = existing?.art ?? { from: "#17392b", to: "#4d8a68", ink: "#eef4e9", kind: "window" as const };
+  const art = existing?.art ?? { from: "#171717", to: "#4a453c", ink: "#f3efe5", kind: "window" as const };
 
   return (
     <div>
@@ -329,7 +329,7 @@ export default function AdminProductEditor() {
                         <Input defaultValue={f.title} className="h-9 text-[0.8125rem]" />
                         <Textarea defaultValue={f.body} className="min-h-16 text-[0.8125rem]" />
                       </div>
-                      <button className="mt-1 text-ink-3 hover:text-red-600" aria-label="Remove feature">
+                      <button className="mt-1 text-ink-3 hover:text-negative" aria-label="Remove feature">
                         <Trash2 className="size-3.5" />
                       </button>
                     </div>
@@ -515,10 +515,10 @@ export default function AdminProductEditor() {
             <TabsContent value="seo" className="pt-4">
               <Panel title="Search preview" bodyClassName="p-4">
                 <div className="rounded-md border border-line p-3">
-                  <p className="text-[0.6875rem] text-emerald-700 dark:text-emerald-400">
+                  <p className="text-[0.6875rem] text-positive">
                     kiln.dev › item › {existing?.slug ?? "new-product"}
                   </p>
-                  <p className="mt-0.5 text-[0.875rem] text-[#1a0dab] dark:text-[#8ab4f8]">
+                  <p className="mt-0.5 text-[0.875rem] text-accent-ink">
                     {form.seoTitle || form.name || "Product title"}
                   </p>
                   <p className="mt-0.5 text-[0.6875rem] text-ink-2">
@@ -563,7 +563,7 @@ export default function AdminProductEditor() {
                 </div>
               ))}
             </div>
-            <div className="rounded-sm bg-sage/50 px-2.5 py-2 text-[0.625rem] leading-relaxed text-[#2c4331] dark:bg-brand-soft dark:text-sage">
+            <div className="rounded-sm bg-sage/50 px-2.5 py-2 text-[0.625rem] leading-relaxed text-ink-2 dark:bg-brand-soft dark:text-ink-2">
               <Check className="mr-1 inline size-3" />
               All required fields complete.
             </div>
@@ -584,11 +584,11 @@ export default function AdminProductEditor() {
           </Panel>
 
           {!isNew && (
-            <div className="rounded-lg border border-red-200 bg-red-50/50 p-4 dark:border-red-950 dark:bg-red-950/20">
-              <p className="flex items-center gap-1.5 text-[0.75rem] font-medium text-red-800 dark:text-red-300">
+            <div className="rounded-lg border border-negative/25 bg-negative-soft/50 p-4">
+              <p className="flex items-center gap-1.5 text-[0.75rem] font-medium text-negative">
                 <AlertTriangle className="size-3.5" /> Danger zone
               </p>
-              <p className="mt-1 text-[0.625rem] leading-relaxed text-red-800/80 dark:text-red-300/70">
+              <p className="mt-1 text-[0.625rem] leading-relaxed text-negative/80">
                 Archiving hides the item from the store. Existing licenses stay valid.
               </p>
               <Button

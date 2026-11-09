@@ -239,22 +239,22 @@ export default function AdminSettings() {
             <>
               <Panel title="Brand" bodyClassName="space-y-3 p-4">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Primary colour (forest)" htmlFor="c1">
+                  <Field label="Primary colour (ink)" htmlFor="c1">
                     <div className="flex gap-2">
-                      <input type="color" defaultValue="#17392b" className="h-11 w-12 rounded-sm border border-line" />
+                      <input type="color" defaultValue="#171717" className="h-11 w-12 rounded-sm border border-line" />
                       <Input defaultValue="#17392B" className="font-mono" />
                     </div>
                   </Field>
-                  <Field label="Accent colour (terracotta)" htmlFor="c2">
+                  <Field label="Accent colour (burnt orange)" htmlFor="c2">
                     <div className="flex gap-2">
-                      <input type="color" defaultValue="#c0592b" className="h-11 w-12 rounded-sm border border-line" />
-                      <Input defaultValue="#C0592B" className="font-mono" />
+                      <input type="color" defaultValue="#df4d20" className="h-11 w-12 rounded-sm border border-line" />
+                      <Input defaultValue="#DF4D20" className="font-mono" />
                     </div>
                   </Field>
                   <Field label="Paper tone" htmlFor="c3">
                     <div className="flex gap-2">
-                      <input type="color" defaultValue="#fbf7f0" className="h-11 w-12 rounded-sm border border-line" />
-                      <Input defaultValue="#FBF7F0" className="font-mono" />
+                      <input type="color" defaultValue="#f3efe5" className="h-11 w-12 rounded-sm border border-line" />
+                      <Input defaultValue="#F3EFE5" className="font-mono" />
                     </div>
                   </Field>
                   <Field label="Heading font" htmlFor="f1">
@@ -339,7 +339,7 @@ export default function AdminSettings() {
                 <Field label="Registered address" htmlFor="ra">
                   <Textarea id="ra" value={values?.tagline ?? ""} readOnly className="min-h-16 opacity-70" />
                 </Field>
-                <div className="flex items-center gap-2 rounded-sm bg-sage/50 px-3 py-2 text-[0.625rem] text-[#2c4331] dark:bg-brand-soft dark:text-sage">
+                <div className="flex items-center gap-2 rounded-sm bg-sage/50 px-3 py-2 text-[0.625rem] text-ink-2 dark:bg-brand-soft dark:text-ink-2">
                   <ShieldCheck className="size-3.5" /> VIES validation enabled — reverse charge applies for valid EU VAT numbers.
                 </div>
               </Panel>

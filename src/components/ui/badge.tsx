@@ -11,12 +11,18 @@ const badgeVariants = cva(
         outline: "border-line-strong bg-transparent text-ink-2",
         brand: "border-transparent bg-brand text-brand-ink",
         accent: "border-transparent bg-accent-soft text-accent-ink",
-        sage: "border-transparent bg-sage text-[#2c4331] dark:text-[#c9dcc4]",
+        sage: "border-transparent bg-sage text-ink-2",
         solid: "border-transparent bg-ink text-paper",
-        success: "border-transparent bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+        success: "border-transparent bg-positive-soft text-positive",
         warn: "border-transparent bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300",
-        danger: "border-transparent bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
-        glass: "border-white/25 bg-white/15 text-white backdrop-blur-md",
+        danger: "border-transparent bg-negative-soft text-negative",
+        /*
+         * Badges sit on top of product artwork, whose brightness is not ours to
+         * control — the light pastel covers left white-on-white unreadable.
+         * A dark scrim behind light type is the one treatment that stays
+         * legible over every image in the library.
+         */
+        glass: "border-white/25 bg-black/45 text-white backdrop-blur-md",
       },
       size: {
         sm: "h-5 px-2 text-[0.625rem] tracking-wide",

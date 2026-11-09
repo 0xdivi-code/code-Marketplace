@@ -237,7 +237,7 @@ export default function LibraryPage() {
                     <code className="font-mono text-ink-2">KLN-{item.slug.slice(0, 4).toUpperCase()}-8F2A</code>
                   </span>
                   <span className="flex items-center gap-1">
-                    <Check className="size-3 text-emerald-600" /> Lifetime updates
+                    <Check className="size-3 text-positive" /> Lifetime updates
                   </span>
                   <span>{money(item.price)} paid</span>
                   <Link to="/account/orders" className="ml-auto hover:text-ink">

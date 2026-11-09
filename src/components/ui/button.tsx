@@ -8,17 +8,24 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
+        /*
+         * `primary` is the burnt-orange action: add to cart, buy, publish,
+         * save. One per screen is the idea — everything structural uses
+         * `ink`, which is the black surface of the identity.
+         */
         primary:
-          "bg-brand text-brand-ink shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_8px_20px_-10px_rgba(23,57,43,0.7)] hover:bg-brand/90",
+          "bg-accent text-accent-fg shadow-[0_1px_0_rgba(255,255,255,0.16)_inset,0_8px_20px_-10px_rgba(223,77,32,0.55)] hover:bg-accent-strong",
+        /* legacy alias — the old accent variant, kept so call sites still work */
         accent:
-          "bg-accent text-white shadow-[0_8px_20px_-10px_rgba(192,89,43,0.8)] hover:brightness-105",
-        ink: "bg-ink text-paper hover:opacity-90",
+          "bg-accent text-accent-fg shadow-[0_1px_0_rgba(255,255,255,0.16)_inset,0_8px_20px_-10px_rgba(223,77,32,0.55)] hover:bg-accent-strong",
+        /* the black button — secondary surfaces, nav, admin chrome */
+        ink: "bg-ink text-paper shadow-[0_1px_0_rgba(255,255,255,0.10)_inset] hover:opacity-88",
         outline:
           "border border-line-strong bg-transparent text-ink hover:border-ink/40 hover:bg-surface-2",
         soft: "bg-surface-2 text-ink hover:bg-surface-3",
         ghost: "text-ink-2 hover:bg-surface-2 hover:text-ink",
         link: "text-ink underline-offset-4 hover:underline rounded-none px-0",
-        danger: "bg-red-600 text-white hover:bg-red-700",
+        danger: "bg-negative text-white hover:bg-negative/90",
       },
       size: {
         xs: "h-7 px-2.5 text-xs [&_svg]:size-3.5",

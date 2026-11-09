@@ -116,7 +116,7 @@ return (
                 transition={{ duration: 0.45, delay: i * 0.06, ease }}
                 className="flex items-start gap-3"
               >
-                <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-brand-soft text-brand dark:bg-brand-soft dark:text-[#a9cdb6]">
+                <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-brand-soft text-brand dark:bg-brand-soft dark:text-brand">
                   <p.icon className="size-4" />
                 </span>
                 <div>
@@ -475,7 +475,7 @@ return (
               <div
                 aria-hidden
                 className="pointer-events-none absolute -bottom-16 -right-10 size-64 rounded-full opacity-25 blur-3xl"
-                style={{ background: "radial-gradient(circle, #c0592b, transparent 70%)" }}
+                style={{ background: "radial-gradient(circle, var(--accent), transparent 70%)" }}
               />
             </div>
           </div>
@@ -543,7 +543,7 @@ function Hero({ onSearch }: { onSearch: () => void }) {
               className="flex flex-wrap items-center gap-2"
             >
               <Badge variant="outline" size="lg" className="gap-1.5 border-line-strong">
-                <span className="size-1.5 rounded-full bg-emerald-500" />
+                <span className="size-1.5 rounded-full bg-positive" />
                 {badge}
               </Badge>
               <Link
@@ -692,7 +692,7 @@ function Hero({ onSearch }: { onSearch: () => void }) {
             >
               <div className="flex items-center justify-between">
                 <span className="label-mono text-[0.5rem] text-ink-3">Lighthouse · shipped</span>
-                <span className="flex items-center gap-1 text-[0.625rem] font-medium text-emerald-700 dark:text-emerald-400">
+                <span className="flex items-center gap-1 text-[0.625rem] font-medium text-positive">
                   <BadgeCheck className="size-3" /> 100
                 </span>
               </div>

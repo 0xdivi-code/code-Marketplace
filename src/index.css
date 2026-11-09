@@ -9,26 +9,68 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ---------------------------------------------------------------- tokens */
+/*
+ * Cream, black and burnt orange.
+ *
+ * The palette is declared once, here, and every Tailwind utility in the app
+ * (bg-paper, text-ink-2, border-line, bg-brand, text-accent …) reads from these
+ * names through @theme inline below. Components never carry their own colours,
+ * so the two themes stay structurally identical and a change lands everywhere
+ * at once.
+ *
+ *   paper / surface      the warm cream page and the lighter card stock
+ *   ink                  near-black type, and the "black" brand surface
+ *   accent               burnt orange — reserved for primary actions
+ *
+ * `--brand` is the dark action surface (announcement bar, primary buttons,
+ * closing band). `--accent` is the orange. Neither is decorative: orange marks
+ * the one action that matters on a screen, black carries structure.
+ */
 :root {
-  --paper: #fbf7f0;
-  --surface: #ffffff;
-  --surface-2: #f4ede1;
-  --surface-3: #ece3d3;
-  --ink: #191814;
-  --ink-2: #57524a;
-  --ink-3: #8a8377;
-  --line: #e3d9c9;
-  --line-strong: #d3c6b1;
+  --paper: #f3efe5;
+  --surface: #fbf9f4;
+  --surface-2: #eae5d9;
+  --surface-3: #e2dbcc;
+  --ink: #171717;
+  --ink-2: #66625a;
+  --ink-3: #68645b;
+  --line: #dcd5c8;
+  --line-strong: #c8c0b0;
 
-  --brand: #17392b;
-  --brand-ink: #f7f3ea;
-  --brand-soft: #e7eee7;
-  --accent: #c0592b;
-  --accent-soft: #f7e7dc;
-  --accent-ink: #7c3517;
+  --brand: #171717;
+  --brand-ink: #f3efe5;
+  --brand-soft: #ebe6da;
+  --accent: #df4d20;
+  --accent-fg: #121212;
+  --accent-strong: #c94119;
+  --accent-soft: #f8e7de;
+  --accent-ink: #b23c14;
 
-  --sage: #dfe9dc;
-  --gold: #b0842f;
+  --sage: #e8e3d5;
+  --gold: #c9791f;
+
+  /*
+   * Chart series. Orange leads, then neutrals warm enough to sit beside it
+   * without competing — no second hue family creeps into the dashboard.
+   * Declared as tokens so the charts follow the theme instead of carrying
+   * their own hex values.
+   */
+  --chart-1: #df4d20;
+  --chart-2: #171717;
+  --chart-3: #c8c0b0;
+  --chart-4: #9a958c;
+  --chart-5: #e2dbcc;
+
+  /*
+   * Semantic states. Deliberately NOT Tailwind's emerald/red: a stock green
+   * is the one hue that reads as "leftover" beside burnt orange. Positive is a
+   * muted olive from the same warm family, negative a brick red — legible as
+   * status without competing with the orange action colour.
+   */
+  --positive: #4f6b3a;
+  --positive-soft: #e8eadd;
+  --negative: #b23a2e;
+  --negative-soft: #f7e3df;
 
   --tk-shadow-card: 0 1px 2px rgba(31, 26, 18, 0.04), 0 12px 32px -16px rgba(31, 26, 18, 0.16);
   --tk-shadow-pop: 0 2px 4px rgba(31, 26, 18, 0.05), 0 24px 60px -24px rgba(31, 26, 18, 0.28);
@@ -45,22 +87,24 @@
    * The Kiln names below then point at these, so the older utilities and the
    * pasted reference classes read from one palette.
    */
-  --tk-canvas: #fbf7f0;
-  --tk-surface: #ffffff;
-  --tk-surface-raised: #ffffff;
-  --tk-surface-sunken: #f4ede1;
-  --tk-surface-inverse: #17392b;
-  --tk-fg: #191814;
-  --tk-fg-muted: #57524a;
-  --tk-fg-subtle: #8a8377;
-  --tk-fg-inverse: #f7f3ea;
-  --tk-line: #e3d9c9;
-  --tk-line-strong: #d3c6b1;
-  --tk-primary: #17392b;
-  --tk-primary-fg: #f7f3ea;
-  --tk-primary-hover: color-mix(in oklab, #17392b 88%, #ffffff);
-  --tk-primary-active: color-mix(in oklab, #17392b 78%, #000000);
-  --tk-accent: #c0592b;
+  --tk-canvas: #f3efe5;
+  --tk-surface: #fbf9f4;
+  --tk-surface-raised: #fbf9f4;
+  --tk-surface-sunken: #eae5d9;
+  --tk-surface-inverse: #171717;
+  --tk-fg: #171717;
+  --tk-fg-muted: #66625a;
+  --tk-fg-subtle: #68645b;
+  --tk-fg-inverse: #f3efe5;
+  --tk-line: #dcd5c8;
+  --tk-line-strong: #c8c0b0;
+  --tk-primary: #171717;
+  --tk-primary-fg: #f3efe5;
+  /* the neutral action lifts towards warm charcoal, never towards grey */
+  --tk-primary-hover: #2b2924;
+  --tk-primary-active: #0d0d0b;
+  --tk-accent: #df4d20;
+  --tk-accent-hover: #c94119;
   --tk-accent-fg: #ffffff;
   --tk-section-space: clamp(4rem, 7vw, 6.5rem);
 
@@ -85,32 +129,41 @@
  */
 .dark,
 :root[data-mode="dark"] {
-  --tk-canvas: #0f1a17;
-  --tk-surface: #16231f;
-  --tk-surface-raised: #16231f;
-  --tk-surface-sunken: color-mix(in oklab, #0f1a17 94%, #f3f1ec);
-  --tk-surface-inverse: #f3f1ec;
-  --tk-fg: #f3f1ec;
-  --tk-fg-muted: #a7b0ab;
-  --tk-fg-subtle: color-mix(in oklab, #a7b0ab 70%, #0f1a17);
-  --tk-fg-inverse: #0f1a17;
-  --tk-line: #26352f;
-  --tk-line-strong: color-mix(in oklab, #26352f 82%, #f3f1ec);
-  --tk-primary: #f3f1ec;
-  --tk-primary-fg: #0f1a17;
-  --tk-accent: #d9a063;
-  --tk-accent-fg: #ffffff;
+  /*
+   * Warm charcoal, not inversion.
+   *
+   * The dark set keeps the same temperature as the cream one: the neutrals
+   * carry a little yellow, so cards read as dark stone rather than blue-grey
+   * UI chrome. Orange lifts slightly (#e45a2b) because a #df4d20 fill on a
+   * near-black canvas loses a full step of apparent brightness.
+   */
+  --tk-canvas: #171714;
+  --tk-surface: #20201c;
+  --tk-surface-raised: #282720;
+  --tk-surface-sunken: #121210;
+  --tk-surface-inverse: #f3efe5;
+  --tk-fg: #f3efe5;
+  --tk-fg-muted: #aaa59a;
+  --tk-fg-subtle: #9a958b;
+  --tk-fg-inverse: #171714;
+  --tk-line: #39362f;
+  --tk-line-strong: #4d4941;
 
-  /* hover / active are only ever *derived* shades of the supplied fill */
-  --tk-primary-hover: color-mix(in oklab, #f3f1ec 88%, #0f1a17);
-  --tk-primary-active: color-mix(in oklab, #f3f1ec 80%, #0f1a17);
+  /* cream is the primary action at night — black would vanish into the page */
+  --tk-primary: #f3efe5;
+  --tk-primary-fg: #171714;
+  --tk-primary-hover: #ded9cd;
+  --tk-primary-active: #c9c4b7;
+
+  --tk-accent: #e45a2b;
+  --tk-accent-hover: #f06a3b;
+  --tk-accent-fg: #ffffff;
 
   /* Kiln aliases, following the tk tokens rather than a separate palette */
   --paper: var(--tk-canvas);
   --surface: var(--tk-surface);
-  --surface-2: var(--tk-surface-sunken);
-  /* no surface-3 in the supplied set — derived one step above sunken */
-  --surface-3: color-mix(in oklab, var(--tk-surface-sunken) 88%, #f3f1ec);
+  --surface-2: var(--tk-surface-raised);
+  --surface-3: color-mix(in oklab, var(--tk-surface-raised) 82%, #f3efe5);
   --ink: var(--tk-fg);
   --ink-2: var(--tk-fg-muted);
   --ink-3: var(--tk-fg-subtle);
@@ -118,25 +171,38 @@
   --line-strong: var(--tk-line-strong);
 
   /*
-   * The brand scheme is deliberately NOT themed here. Your dark set covers
-   * [data-scheme="default"] and [data-scheme="soft"] and says nothing about
-   * [data-scheme="brand"], so that surface keeps its colour in both modes —
-   * which is exactly why the closing band stays deep green at night.
+   * The brand surface is the "black" of the identity. In light mode it is ink
+   * on cream; at night it cannot be black on black, so it inverts to cream —
+   * exactly as the supplied dark set does for primary.
    */
-  --brand: #17402f;
-  --brand-ink: #f4f8f1;
-  --brand-soft: color-mix(in oklab, var(--tk-surface) 80%, #f3f1ec);
+  --brand: #f3efe5;
+  --brand-ink: #171714;
+  --brand-soft: #2a2823;
+
   --accent: var(--tk-accent);
-  --accent-ink: var(--tk-accent);
-  --accent-soft: color-mix(in oklab, #d9a063 18%, #0f1a17);
+  /* ink on orange: 4.96:1, versus 3.62:1 for white on the same fill */
+  --accent-fg: #171714;
+  --accent-strong: var(--tk-accent-hover);
+  --accent-ink: #f08a63;
+  --accent-soft: color-mix(in oklab, #e45a2b 16%, #171714);
 
-  --sage: color-mix(in oklab, #26352f 60%, #0f1a17);
-  --gold: var(--tk-accent);
+  --sage: #2a2823;
+  --gold: #d99342;
 
-  --tk-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 40px -20px rgba(0, 0, 0, 0.7);
-  --tk-shadow-pop: 0 2px 6px rgba(0, 0, 0, 0.5), 0 28px 70px -28px rgba(0, 0, 0, 0.9);
+  --chart-1: #e45a2b;
+  --chart-2: #f3efe5;
+  --chart-3: #7a756b;
+  --chart-4: #4d4941;
+  --chart-5: #8d887d;
+
+  --positive: #9db87f;
+  --positive-soft: #232a1c;
+  --negative: #e07565;
+  --negative-soft: #33201c;
+
+  --tk-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 16px 40px -20px rgba(0, 0, 0, 0.8);
+  --tk-shadow-pop: 0 2px 6px rgba(0, 0, 0, 0.55), 0 28px 70px -28px rgba(0, 0, 0, 0.9);
 }
-
 
 @theme inline {
   --color-paper: var(--paper);
@@ -152,10 +218,28 @@
   --color-brand-ink: var(--brand-ink);
   --color-brand-soft: var(--brand-soft);
   --color-accent: var(--accent);
+  /*
+   * The label colour for a filled accent button. Not the raw --tk-accent-fg:
+   * white on the supplied #df4d20 is 4.02:1 and would fail AA for a button
+   * label, so this is a near-black that mirrors the identity instead — 4.46:1
+   * on the supplied orange and higher on its hover shade.
+   */
+  --color-accent-fg: var(--accent-fg);
+  /* the pressed/hover shade of the orange, used by filled accent buttons */
+  --color-accent-strong: var(--accent-strong);
   --color-accent-soft: var(--accent-soft);
   --color-accent-ink: var(--accent-ink);
   --color-sage: var(--sage);
   --color-gold: var(--gold);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-positive: var(--positive);
+  --color-positive-soft: var(--positive-soft);
+  --color-negative: var(--negative);
+  --color-negative-soft: var(--negative-soft);
 
   /* StoreKitt names, so `bg-surface`, `text-fg-muted`, `border-line`,
      `bg-primary`, `rounded-card` from the reference all resolve. */

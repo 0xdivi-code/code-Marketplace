@@ -59,7 +59,7 @@ export default function FreePage() {
             </Badge>
             <h1 className="mt-4 text-[2.4rem] leading-[0.98] sm:text-[3.4rem]">
               Six items. Zero dollars.
-              <span className="block text-[#a9cdb6]">No email wall.</span>
+              <span className="block text-accent">No email wall.</span>
             </h1>
             <p className="mt-4 max-w-lg text-[0.9375rem] leading-relaxed text-paper/65">
               These are the same components, hooks and recipes running on this store — MIT licensed,
@@ -73,7 +73,7 @@ export default function FreePage() {
                 <Star className="size-3.5 fill-gold text-gold" /> 4.7 average rating
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="size-1.5 rounded-full bg-[#8fbf9a]" /> MIT license
+                <span className="size-1.5 rounded-full bg-accent" /> MIT license
               </span>
             </div>
           </div>
@@ -88,7 +88,7 @@ export default function FreePage() {
                 cx={(i % 10) * 60 + 20}
                 cy={Math.floor(i / 10) * 50 + 20}
                 r={2 + (i % 4)}
-                fill="#a9cdb6"
+                fill="var(--accent)"
                 opacity={0.15 + (i % 5) * 0.1}
               />
             ))}
@@ -114,7 +114,7 @@ export default function FreePage() {
                   className="aspect-[16/9] w-full transition-transform duration-700 group-hover:scale-[1.03]"
                 />
                 <div className="absolute left-3 top-3">
-                  <Badge variant="solid" size="sm" className="bg-white text-[#17392b]">
+                  <Badge variant="solid" size="sm" className="bg-white text-[#171717]">
                     Free · MIT
                   </Badge>
                 </div>

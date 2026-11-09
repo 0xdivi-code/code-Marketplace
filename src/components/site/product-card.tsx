@@ -96,7 +96,7 @@ export function ProductCard({
 
         <div className="pointer-events-none absolute left-2.5 top-2.5 flex flex-wrap gap-1.5">
           {product.free && (
-            <Badge variant="solid" size="sm" className="bg-white text-[#17392b] shadow-sm">
+            <Badge variant="solid" size="sm" className="bg-white text-[#171717] shadow-sm">
               Free
             </Badge>
           )}
@@ -124,7 +124,7 @@ export function ProductCard({
         aria-pressed={isWished}
         className={cn(
           "absolute right-2.5 top-2.5 grid size-8 place-items-center rounded-full",
-          "bg-white/85 text-[#17392b] shadow-sm backdrop-blur transition-all duration-300",
+          "bg-white/85 text-ink shadow-sm backdrop-blur transition-all duration-300",
           "hover:bg-white focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
           /*
            * Always visible on touch. Tailwind v4 wraps `hover:` in
@@ -134,7 +134,7 @@ export function ProductCard({
            */
           "opacity-0 pointer-fine:opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100",
           "pointer-coarse:opacity-100",
-          isWished && "bg-accent text-white opacity-100 hover:bg-accent",
+          isWished && "bg-accent text-accent-fg opacity-100 hover:bg-accent",
         )}
       >
         <Heart className={cn("size-3.5", isWished && "fill-current")} />
@@ -197,7 +197,7 @@ export function ProductCard({
               "grid size-8 shrink-0 place-items-center rounded-full transition-all duration-200",
               "focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:outline-none",
               inCart
-                ? "bg-brand-soft text-brand dark:bg-brand-soft dark:text-[#a9cdb6]"
+                ? "bg-brand-soft text-brand dark:bg-brand-soft dark:text-brand"
                 : "bg-brand text-brand-ink hover:brightness-110 active:scale-95",
             )}
           >

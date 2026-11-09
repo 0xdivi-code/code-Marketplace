@@ -528,11 +528,11 @@ export default function SettingsPage() {
             </Button>
           </div>
 
-          <div className="rounded-lg border border-red-200 bg-red-50/60 p-5 dark:border-red-950 dark:bg-red-950/20">
-            <h3 className="flex items-center gap-2 text-[0.9375rem] font-medium text-red-800 dark:text-red-300">
+          <div className="rounded-lg border border-negative/25 bg-negative-soft/60 p-5">
+            <h3 className="flex items-center gap-2 text-[0.9375rem] font-medium text-negative">
               <Trash2 className="size-4" /> Delete account
             </h3>
-            <p className="mt-1 text-[0.75rem] leading-relaxed text-red-800/80 dark:text-red-300/70">
+            <p className="mt-1 text-[0.75rem] leading-relaxed text-negative/80">
               Licenses stay valid, but you lose access to downloads and invoices. This can’t be undone.
             </p>
             <Button size="sm" variant="danger" className="mt-3">

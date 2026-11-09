@@ -47,7 +47,7 @@ export default function ForgotPasswordPage() {
       {sent ? (
         <div className="rounded-md border border-line bg-surface p-5 text-center">
           <div className="mx-auto grid size-11 place-items-center rounded-full bg-sage/70">
-            <MailCheck className="size-5 text-[#2c4331]" />
+            <MailCheck className="size-5 text-accent-ink" />
           </div>
           <p className="mt-3 text-[0.8125rem] text-ink-2">
             Didn’t arrive? Check spam, or resend in a minute.

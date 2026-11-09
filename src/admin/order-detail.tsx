@@ -383,7 +383,7 @@ export default function AdminOrderDetail() {
             <Button
               variant="outline"
               size="xs"
-              className="h-8 w-full justify-start text-red-600 dark:text-red-400"
+              className="h-8 w-full justify-start text-negative"
               disabled={busy || order.status === "refunded"}
               onClick={() => void setStatus("refunded")}
             >

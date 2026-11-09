@@ -110,7 +110,7 @@ export function CartDrawer() {
                         )}
                         <button
                           onClick={() => remove(line.productSlug)}
-                          className="ml-auto grid size-6 place-items-center rounded text-ink-3 transition-colors hover:bg-surface-2 hover:text-red-600"
+                          className="ml-auto grid size-6 place-items-center rounded text-ink-3 transition-colors hover:bg-surface-2 hover:text-negative"
                           aria-label={`Remove ${product?.name ?? bundle?.name ?? "item"}`}
                         >
                           <Trash2 className="size-3.5" />
@@ -162,7 +162,7 @@ export function CartDrawer() {
                     placeholder={coupon ? coupon : "Discount code"}
                     className={cn(
                       "h-9 w-full rounded-sm border border-line-strong bg-surface pl-8 pr-2 text-xs uppercase tracking-wide placeholder:normal-case placeholder:tracking-normal placeholder:text-ink-3",
-                      error && "border-red-400",
+                      error && "border-negative",
                     )}
                   />
                 </div>
@@ -170,9 +170,9 @@ export function CartDrawer() {
                   Apply
                 </Button>
               </form>
-              {error && <p className="mb-2 text-[0.6875rem] text-red-600 dark:text-red-400">{error}</p>}
+              {error && <p className="mb-2 text-[0.6875rem] text-negative">{error}</p>}
               {coupon && (
-                <div className="mb-3 flex items-center justify-between rounded-sm bg-sage/60 px-2.5 py-1.5 text-[0.6875rem] text-[#2c4331] dark:bg-brand-soft dark:text-sage">
+                <div className="mb-3 flex items-center justify-between rounded-sm bg-sage/60 px-2.5 py-1.5 text-[0.6875rem] text-ink-2 dark:bg-brand-soft dark:text-ink-2">
                   <span className="font-medium">{coupon} applied</span>
                   <button onClick={removeCoupon} className="underline underline-offset-2">
                     remove

@@ -9,10 +9,10 @@ const sizes = {
 };
 
 const tones = [
-  "bg-[#17392b] text-[#eef4e9]",
-  "bg-[#c0592b] text-[#fbeee6]",
-  "bg-[#2c4a6e] text-[#e9f0f7]",
-  "bg-[#56682e] text-[#f0f4e5]",
+  "bg-[#171717] text-[#f3efe5]",
+  "bg-[#df4d20] text-[#121212]",
+  "bg-[#3a3730] text-[#f3efe5]",
+  "bg-[#5f5b54] text-[#f3efe5]",
   "bg-[#7c3517] text-[#fbeade]",
   "bg-[#4a3f6b] text-[#efeaf7]",
 ];

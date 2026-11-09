@@ -194,7 +194,7 @@ export default function AdminBundles() {
                       <Pencil className="size-4" />
                     </Button>
                     <Button variant="ghost" size="icon" aria-label={`Delete ${b.name}`} onClick={() => void remove(b)}>
-                      <Trash2 className="size-4 text-red-600" />
+                      <Trash2 className="size-4 text-negative" />
                     </Button>
                   </div>
                 </div>

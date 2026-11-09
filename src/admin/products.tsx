@@ -74,7 +74,7 @@ export default function AdminProducts() {
       align: "right",
       sortValue: (p) => p.price,
       render: (p) => (
-        <span className={cn("font-mono text-[0.75rem]", p.free && "text-[#56682e] dark:text-[#a3b46b]")}>
+        <span className={cn("font-mono text-[0.75rem]", p.free && "text-positive")}>
           {money(p.price)}
         </span>
       ),

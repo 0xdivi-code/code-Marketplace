@@ -91,7 +91,7 @@ export function Field({
       )}
       {children}
       {error ? (
-        <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+        <p className="text-xs text-negative">{error}</p>
       ) : hint ? (
         <p className="text-xs text-ink-3">{hint}</p>
       ) : null}

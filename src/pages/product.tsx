@@ -194,7 +194,7 @@ export default function ProductPage() {
                 />
                 <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-3">
                   <div className="flex flex-wrap gap-1.5">
-                    {product.free && <Badge variant="solid" size="sm" className="bg-white text-[#17392b]">Free</Badge>}
+                    {product.free && <Badge variant="solid" size="sm" className="bg-white text-[#171717]">Free</Badge>}
                     {product.new && <Badge variant="glass" size="sm">New</Badge>}
                     {product.bestseller && <Badge variant="glass" size="sm">Bestseller</Badge>}
                   </div>
@@ -206,14 +206,14 @@ export default function ProductPage() {
                   <>
                     <button
                       onClick={() => setImageIndex((i) => (i - 1 + gallery.length) % gallery.length)}
-                      className="absolute left-3 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-white/85 text-[#17392b] shadow-sm backdrop-blur transition-transform hover:scale-105"
+                      className="absolute left-3 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-white/85 text-ink shadow-sm backdrop-blur transition-transform hover:scale-105"
                       aria-label="Previous image"
                     >
                       <ChevronLeft className="size-4" />
                     </button>
                     <button
                       onClick={() => setImageIndex((i) => (i + 1) % gallery.length)}
-                      className="absolute right-3 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-white/85 text-[#17392b] shadow-sm backdrop-blur transition-transform hover:scale-105"
+                      className="absolute right-3 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-white/85 text-ink shadow-sm backdrop-blur transition-transform hover:scale-105"
                       aria-label="Next image"
                     >
                       <ChevronRight className="size-4" />
@@ -328,7 +328,7 @@ export default function ProductPage() {
                       className="rounded-md border border-line bg-surface p-4"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="grid size-6 place-items-center rounded-full bg-brand-soft text-[0.625rem] font-semibold text-brand dark:text-[#a9cdb6]">
+                        <span className="grid size-6 place-items-center rounded-full bg-brand-soft text-[0.625rem] font-semibold text-brand dark:text-brand">
                           {String(i + 1).padStart(2, "0")}
                         </span>
                         <h3 className="text-[0.875rem] font-medium">{f.title}</h3>
@@ -788,7 +788,7 @@ function ReviewSection({
                   className={cn(
                     "mt-2.5 flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.625rem] transition-colors",
                     helpful[r.id]
-                      ? "border-brand bg-brand-soft text-brand dark:text-[#a9cdb6]"
+                      ? "border-brand bg-brand-soft text-brand dark:text-brand"
                       : "border-line text-ink-3 hover:text-ink",
                   )}
                 >

@@ -77,7 +77,7 @@ export function SiteFooter() {
               </label>
               {done ? (
                 <div className="flex items-center gap-2 rounded-sm border border-line bg-surface-2 px-3 py-2.5 text-[0.8125rem] text-ink-2">
-                  <Check className="size-4 text-emerald-600" />
+                  <Check className="size-4 text-positive" />
                   You’re on the list — check {email} for a confirmation.
                 </div>
               ) : (
@@ -160,7 +160,7 @@ export function SiteFooter() {
           <div
             aria-hidden
             className="pointer-events-none absolute -right-10 -top-16 size-64 rounded-full opacity-20 blur-2xl"
-            style={{ background: "radial-gradient(circle, #8fbf9a, transparent 70%)" }}
+            style={{ background: "radial-gradient(circle, var(--accent), transparent 70%)" }}
           />
         </div>
 

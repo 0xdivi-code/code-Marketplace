@@ -391,7 +391,7 @@ export default function AdminPromotions() {
                 type="checkbox"
                 checked={oncePerCustomer}
                 onChange={(e) => setOncePerCustomer(e.target.checked)}
-                className="size-3.5 accent-[#17392b]"
+                className="size-3.5 accent-accent"
               />
               One redemption per customer
             </label>

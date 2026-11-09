@@ -116,7 +116,7 @@ export default function RegisterPage() {
                     "h-1 flex-1 rounded-full transition-colors",
                     i < strength
                       ? strength >= 3
-                        ? "bg-emerald-500"
+                        ? "bg-positive"
                         : "bg-amber-500"
                       : "bg-line",
                   )}

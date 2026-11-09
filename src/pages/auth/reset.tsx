@@ -103,7 +103,7 @@ export default function ResetPasswordPage() {
                 key={r.label}
                 className={cn(
                   "flex items-center gap-2 text-[0.6875rem] transition-colors",
-                  r.ok ? "text-emerald-700 dark:text-emerald-400" : "text-ink-3",
+                  r.ok ? "text-positive" : "text-ink-3",
                 )}
               >
                 <Check className={cn("size-3", !r.ok && "opacity-30")} strokeWidth={3} />
