@@ -46,3 +46,7 @@ public/img/ref/
 
 # local database + private upload storage (never committed)
 .data/
+
+# local redesign verification screenshots (not app assets)
+/.baseline/
+/.after/

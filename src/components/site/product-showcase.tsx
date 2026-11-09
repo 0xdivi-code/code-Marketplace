@@ -117,7 +117,7 @@ export function ProductShowcase({
                  * contrast against the dark canvas.
                  */
                 active
-                  ? "border-primary bg-primary text-primary-fg dark:border-accent dark:bg-accent dark:text-white"
+                  ? "border-primary bg-primary text-primary-fg dark:border-accent dark:bg-accent dark:text-accent-fg"
                   : "border-line bg-surface text-fg-muted hover:border-line-strong hover:text-fg",
               )}
             >

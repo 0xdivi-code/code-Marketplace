@@ -83,7 +83,7 @@ export function SiteHeader() {
       <div className="relative z-40 border-b border-line/70 bg-brand text-brand-ink">
         <div className="container-x flex h-9 items-center justify-between gap-4 text-[0.6875rem]">
           <p className="flex items-center gap-2 truncate">
-            <span className="hidden size-1.5 shrink-0 rounded-full bg-[#8fbf9a] sm:block" />
+            <span className="hidden size-1.5 shrink-0 rounded-full bg-accent sm:block" />
             <span className="truncate">
               New drop: <strong className="font-semibold">Ledger — Billing Engine v1.1</strong> — usage
               metering, invoices and dunning.
@@ -156,7 +156,7 @@ export function SiteHeader() {
             >
               <Search className="size-3.5" />
               <span className="flex-1 text-left">Search code…</span>
-              <kbd className="rounded border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[0.5625rem]">
+              <kbd className="rounded border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[0.5625rem] text-ink-2">
                 ⌘K
               </kbd>
             </button>
@@ -209,7 +209,7 @@ export function SiteHeader() {
                   key={count}
                   initial={{ scale: 0.4, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-accent font-mono text-[0.5625rem] font-semibold text-white"
+                  className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-accent font-mono text-[0.5625rem] font-semibold text-accent-fg"
                 >
                   {count}
                 </motion.span>

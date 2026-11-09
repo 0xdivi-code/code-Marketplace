@@ -116,7 +116,7 @@ export default function CartPage() {
                     )}
                     <button
                       onClick={() => remove(line.productSlug)}
-                      className="flex items-center gap-1 text-[0.6875rem] text-ink-3 transition-colors hover:text-red-600"
+                      className="flex items-center gap-1 text-[0.6875rem] text-ink-3 transition-colors hover:text-negative"
                     >
                       <Trash2 className="size-3" /> Remove
                     </button>
@@ -175,7 +175,7 @@ export default function CartPage() {
                 Apply
               </Button>
             </form>
-            {error && <p className="mt-1.5 text-[0.6875rem] text-red-600 dark:text-red-400">{error}</p>}
+            {error && <p className="mt-1.5 text-[0.6875rem] text-negative">{error}</p>}
             {coupon && (
               <div className="mt-2 flex items-center justify-between rounded-sm bg-sage/60 px-2.5 py-1.5 text-[0.6875rem]">
                 <span className="font-medium">{coupon} applied</span>

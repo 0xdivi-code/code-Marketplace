@@ -32,8 +32,8 @@ export default function AdminCategories() {
     name: "",
     slug: "",
     blurb: "",
-    from: "#17392b",
-    to: "#4d8a68",
+    from: "#171717",
+    to: "#4a453c",
     glyph: "layers",
   });
   const cat = categories.find((c) => c.slug === editing);
@@ -60,8 +60,8 @@ export default function AdminCategories() {
       name: cat?.name ?? "",
       slug: cat?.slug ?? "",
       blurb: cat?.blurb ?? "",
-      from: cat?.from ?? "#17392b",
-      to: cat?.to ?? "#4d8a68",
+      from: cat?.from ?? "#171717",
+      to: cat?.to ?? "#4a453c",
       glyph: cat?.glyph ?? "layers",
     });
   }, [open, cat?.slug]);
@@ -156,7 +156,7 @@ export default function AdminCategories() {
                   </button>
                   <button
                     onClick={() => void remove(c)}
-                    className="grid size-7 place-items-center rounded text-ink-3 hover:bg-surface-2 hover:text-red-600"
+                    className="grid size-7 place-items-center rounded text-ink-3 hover:bg-surface-2 hover:text-negative"
                     aria-label={`Delete ${c.name}`}
                   >
                     <Trash2 className="size-3.5" />

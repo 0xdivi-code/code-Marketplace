@@ -233,7 +233,7 @@ export default function AdminBanners() {
                   <p className="font-mono text-[0.5625rem] text-ink-3">{a.href ?? "no link"}</p>
                   <button
                     onClick={() => void removeAnnouncement(a)}
-                    className="ml-auto text-ink-3 hover:text-red-600"
+                    className="ml-auto text-ink-3 hover:text-negative"
                     aria-label="Delete announcement"
                   >
                     <Trash2 className="size-3" />
@@ -318,7 +318,7 @@ export default function AdminBanners() {
                   </div>
                 </div>
                 <div className="overflow-hidden rounded-sm">
-                  <ProductArt from="#17392b" to="#4d8a68" ink="#eef4e9" kind="window" className="aspect-[4/3] w-full" />
+                  <ProductArt from="#171717" to="#4a453c" ink="#f3efe5" kind="window" className="aspect-[4/3] w-full" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-1 border-t border-line bg-surface p-2 sm:grid-cols-4">

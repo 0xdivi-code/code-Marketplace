@@ -66,7 +66,7 @@ export function AuthShell({
                 "Early access to new drops",
               ].map((t) => (
                 <p key={t} className="flex items-center gap-2.5 text-[0.8125rem] text-brand-ink/70">
-                  <span className="size-1.5 rounded-full bg-[#8fbf9a]" />
+                  <span className="size-1.5 rounded-full bg-accent" />
                   {t}
                 </p>
               ))}

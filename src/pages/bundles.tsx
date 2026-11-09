@@ -103,7 +103,7 @@ export default function BundlesPage() {
                   <ProductArt
                     from={b.art.from}
                     to={b.art.to}
-                    ink="#eef4e9"
+                    ink="#f3efe5"
                     kind="grid"
                     className="h-40 w-full rounded-sm"
                   />

@@ -66,7 +66,7 @@ export default function CollectionPage() {
                   <p className="font-display text-[2rem] leading-none">{money(bundle)}</p>
                 </div>
                 <p className="pb-1 font-mono text-sm text-white/50 line-through">{money(total)}</p>
-                <Badge variant="solid" size="md" className="mb-1 bg-white text-[#17392b]">
+                <Badge variant="solid" size="md" className="mb-1 bg-white text-[#171717]">
                   Save 20%
                 </Badge>
               </div>

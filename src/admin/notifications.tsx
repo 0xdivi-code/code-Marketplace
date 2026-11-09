@@ -161,7 +161,7 @@ export default function AdminNotifications() {
                     <td className="px-4 py-2.5 text-[0.6875rem]">{n.toEmail}</td>
                     <td className="max-w-[280px] truncate px-4 py-2.5 text-[0.6875rem] text-ink-2">
                       {n.subject}
-                      {n.error && <span className="ml-2 text-red-600">{n.error}</span>}
+                      {n.error && <span className="ml-2 text-negative">{n.error}</span>}
                     </td>
                     <td className="hidden px-4 py-2.5 font-mono text-[0.625rem] text-ink-3 sm:table-cell">
                       {n.transport}

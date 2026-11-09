@@ -12,13 +12,13 @@ import { toast } from "sonner";
 
 const kindMeta = {
   product: { icon: Package, label: "Product", color: "text-accent" },
-  order: { icon: CreditCard, label: "Order", color: "text-emerald-600" },
-  customer: { icon: User, label: "Customer", color: "text-[#2c4a6e]" },
-  content: { icon: Activity, label: "Content", color: "text-[#7c3517]" },
-  promo: { icon: Filter, label: "Promotion", color: "text-[#b0842f]" },
+  order: { icon: CreditCard, label: "Order", color: "text-positive" },
+  customer: { icon: User, label: "Customer", color: "text-chart-3" },
+  content: { icon: Activity, label: "Content", color: "text-chart-4" },
+  promo: { icon: Filter, label: "Promotion", color: "text-ink-3" },
   settings: { icon: Settings2, label: "Settings", color: "text-ink-3" },
-  auth: { icon: ShieldCheck, label: "Auth", color: "text-[#2c4a6e]" },
-  license: { icon: Package, label: "Licence", color: "text-emerald-600" },
+  auth: { icon: ShieldCheck, label: "Auth", color: "text-chart-3" },
+  license: { icon: Package, label: "Licence", color: "text-positive" },
 } as const;
 
 type KindMeta = typeof kindMeta;

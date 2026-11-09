@@ -38,7 +38,7 @@ export function Stat({
               <span
                 className={cn(
                   "flex items-center gap-0.5 font-medium",
-                  up ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400",
+                  up ? "text-positive" : "text-negative",
                 )}
               >
                 {up ? <ChevronUp className="size-2.5" /> : <ChevronDown className="size-2.5" />}
@@ -64,7 +64,7 @@ export function Sparkline({
   const max = Math.max(...data);
   const min = Math.min(...data);
   const color =
-    tone === "good" ? "var(--accent)" : tone === "warn" ? "#b0842f" : "var(--brand)";
+    tone === "good" ? "var(--chart-1)" : tone === "warn" ? "var(--chart-4)" : "var(--chart-2)";
   return (
     <svg viewBox="0 0 80 28" className="h-7 w-20 shrink-0" aria-hidden>
       <polyline
@@ -399,7 +399,7 @@ export function RowActions({
               disabled={i.disabled}
               className={cn(
                 "cursor-pointer rounded-sm px-2 py-1.5 text-[0.75rem] outline-none hover:bg-surface-2",
-                i.danger ? "text-red-600 dark:text-red-400" : "text-ink-2 hover:text-ink",
+                i.danger ? "text-negative" : "text-ink-2 hover:text-ink",
                 i.disabled && "pointer-events-none opacity-40",
               )}
             >
@@ -443,7 +443,7 @@ export function DeltaCell({ value }: { value: number }) {
     <span
       className={cn(
         "font-mono text-[0.6875rem]",
-        up ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400",
+        up ? "text-positive" : "text-negative",
       )}
     >
       {pct(value)}
@@ -490,10 +490,10 @@ export function MetricRow({
   tone?: "brand" | "accent" | "sage" | "gold";
 }) {
   const colors = {
-    brand: "bg-brand",
-    accent: "bg-accent",
-    sage: "bg-[#7f9c84]",
-    gold: "bg-[#b0842f]",
+    brand: "bg-chart-2",
+    accent: "bg-chart-1",
+    sage: "bg-chart-3",
+    gold: "bg-chart-4",
   } as const;
   return (
     <div>

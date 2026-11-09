@@ -100,7 +100,7 @@ export function AdminLogin() {
           <h1 className="font-display text-[1.75rem] leading-tight tracking-tight">Sign in to the console</h1>
           <p className="mt-2 text-sm text-ink-3">
             Staff access only. Customers sign in{" "}
-            <Link to="/login" className="text-forest underline decoration-forest/30 underline-offset-2 hover:decoration-forest">
+            <Link to="/login" className="text-accent-ink underline decoration-accent/30 underline-offset-2 hover:decoration-accent">
               here
             </Link>
             .

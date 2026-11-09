@@ -37,8 +37,18 @@ import { compact, money } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-/** One palette shared by every breakdown, indexed so colours stay stable. */
-const PALETTE = ["#17392b", "#c0592b", "#2c4a6e", "#56682e", "#b0842f", "#6b4a7a"];
+/**
+ * One palette shared by every breakdown, indexed so colours stay stable.
+ * Read from the chart tokens rather than hex literals, so the series follow
+ * the active theme — orange leads, warm neutrals support it.
+ */
+const PALETTE = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+];
 
 interface Analytics {
   range: string;
@@ -315,7 +325,7 @@ export default function AdminDashboard() {
                   yAxisId="ord"
                   type="monotone"
                   dataKey="orders"
-                  stroke="var(--brand)"
+                  stroke="var(--chart-2)"
                   strokeWidth={1.5}
                   strokeDasharray="4 3"
                   fill="none"
@@ -417,7 +427,7 @@ export default function AdminDashboard() {
                     tickFormatter={(v) => `$${Math.round(v / 100)}`}
                   />
                   <ReTooltip content={<ChartTip />} cursor={{ fill: "var(--surface-2)" }} />
-                  <Bar dataKey="revenue" fill="var(--brand)" radius={[2, 2, 0, 0]} maxBarSize={28} />
+                  <Bar dataKey="revenue" fill="var(--chart-1)" radius={[2, 2, 0, 0]} maxBarSize={28} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -443,7 +453,7 @@ export default function AdminDashboard() {
                 <ProductArt
                   from={p.art_from}
                   to={p.art_to}
-                  ink="#eef4e9"
+                  ink="#f3efe5"
                   kind={p.art_kind as never}
                   className="size-9 shrink-0 rounded-[5px]"
                 />
@@ -551,9 +561,9 @@ export default function AdminDashboard() {
                   a.kind === "product"
                     ? "bg-accent"
                     : a.kind === "order"
-                      ? "bg-emerald-500"
+                      ? "bg-positive"
                       : a.kind === "promo"
-                        ? "bg-[#b0842f]"
+                        ? "bg-chart-3"
                         : "bg-ink-3",
                 )}
               />

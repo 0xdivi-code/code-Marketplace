@@ -55,7 +55,7 @@ export function CatalogBoot({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={() => setAttempt((n) => n + 1)}
-              className="rounded-sm border border-line px-2 py-1 font-medium text-forest hover:bg-sage/40"
+              className="rounded-sm border border-line px-2 py-1 font-medium text-accent-ink hover:bg-sage/40"
             >
               Retry
             </button>

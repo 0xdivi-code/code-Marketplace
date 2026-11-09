@@ -247,9 +247,9 @@ export function Pagination({
 export function StatusDot({ tone = "neutral" }: { tone?: "neutral" | "success" | "warn" | "danger" | "info" }) {
   const map = {
     neutral: "bg-ink-3",
-    success: "bg-emerald-500",
+    success: "bg-positive",
     warn: "bg-amber-500",
-    danger: "bg-red-500",
+    danger: "bg-negative",
     info: "bg-sky-500",
   } as const;
   return (
