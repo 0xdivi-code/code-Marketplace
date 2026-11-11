@@ -7,6 +7,9 @@
  *
  *   npx tsx server/scripts/backup.ts /var/backups/kiln
  */
+// Load ./.env exactly as the API does: these scripts must act on the same data
+// directory, and dotenv does not override variables already in the environment.
+import "dotenv/config";
 import { mkdir, writeFile, readdir, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { createReadStream, existsSync } from "node:fs";

@@ -1,0 +1,51 @@
+# Kiln — Caddy front door.
+#
+# One origin. Caddy terminates TLS, serves the built SPA from dist/, and proxies
+# the API to the Node process on 127.0.0.1:8787. That keeps the session cookie
+# first-party (sameSite=Lax), which is what makes login work in production.
+#
+# Replace kiln.example.com with your domain, then:
+#   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+#   sudo nano /etc/caddy/Caddyfile            # set the real name
+#   sudo caddy validate --config /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+#
+# Caddy gets the certificate automatically, but only after the domain's A record
+# points at this server and ports 80 + 443 are reachable from the internet.
+
+{
+	# Set only if you need an ACME staging certificate while debugging DNS.
+	# email you@your-domain.com
+}
+
+kiln.example.com {
+	encode zstd gzip
+
+	# The app generates these from the database; they must live at the domain
+	# root, not under /api, or crawlers get the SPA shell instead.
+	rewrite /robots.txt /api/robots.txt
+	rewrite /sitemap.xml /api/sitemap.xml
+
+	# Hashed build output never changes under the same name.
+	@assets path /assets/* /img/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# API and the two generated SEO files go to Node.
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8787
+	}
+	handle /robots.txt {
+		reverse_proxy 127.0.0.1:8787
+	}
+	handle /sitemap.xml {
+		reverse_proxy 127.0.0.1:8787
+	}
+
+	# Everything else is the React build. try_files gives deep links
+	# (/item/dubs, /admin/orders) index.html instead of a 404.
+	handle {
+		root * /srv/kiln/dist
+		try_files {path} /index.html
+		file_server
+	}
+}

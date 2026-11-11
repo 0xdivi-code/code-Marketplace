@@ -52,7 +52,7 @@ gitignored; secrets must never be committed.
 | --- | --- | --- |
 | `API_PORT` | `8787` | Listen port |
 | `PGLITE_DIR` | `.data/pg` | Embedded database directory |
-| `DATABASE_URL` | — | Use an external PostgreSQL instead of PGlite |
+| `DATABASE_URL` | — | **Not implemented.** Only `server/scripts/backup.ts` reads it; the server always uses PGlite. |
 | `MAIL_FROM` | `Kiln <receipts@kiln.dev>` | Sender identity |
 | `SMTP_URL` / `SMTP_TOKEN` | — | HTTP-to-SMTP bridge, alternative to Resend |
 | `TRUST_PROXY` | `false` | Set `true` only behind a load balancer you control |
@@ -69,7 +69,7 @@ gitignored; secrets must never be committed.
 ```bash
 git clone <repo> /srv/kiln && cd /srv/kiln
 npm ci
-npm run build              # emits dist/ and typechecks the server
+npm run build              # emits dist/ (vite build)
 
 export $(grep -v '^#' .env | xargs)
 npx tsx server/scripts/migrate.ts   # create/upgrade the schema
@@ -78,6 +78,10 @@ npx tsx server/index.ts             # or use the systemd unit below
 ```
 
 `seed.ts` is safe to run repeatedly: it short-circuits when a catalogue exists.
+It also creates the demo storefront — 14 shoppers whose password is the published
+`demo1234`, plus demo orders, reviews and coupons. Before taking real money,
+remove them: `npm run clear-demo-data -- --yes` (with the API stopped and the
+production env loaded); it keeps the catalogue, settings and owner account.
 `reseed.ts` is destructive and refuses to run with `NODE_ENV=production`.
 
 ### Health check
@@ -94,8 +98,10 @@ lock problem that a plain TCP check would miss.
 
 ## 4. Reverse proxy and HTTPS
 
-The browser talks to one origin: the API serves `/api/*` and the static build is
-served from `dist/`. Rewrite `/robots.txt` and `/sitemap.xml` to the API host, or
+The browser talks to one origin: the reverse proxy serves the static build from
+`dist/` and forwards `/api/*` to the Node process. The API does **not** serve the
+SPA itself — `server/index.ts` has no static handler, so `GET /` on port 8787 is a
+404 by design. Caddy or Nginx is not optional in production. Rewrite `/robots.txt` and `/sitemap.xml` to the API host, or
 crawlers will fetch the SPA shell instead of the generated files.
 
 ### Caddy (automatic HTTPS)
