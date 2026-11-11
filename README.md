@@ -237,8 +237,14 @@ LD_LIBRARY_PATH=/tmp/al2023/lib node scripts/shots.mjs /tmp/shots
 
 ## Deployment
 
-See **[DEPLOYMENT.md](./DEPLOYMENT.md)** — environment reference, systemd unit,
-Caddy and Nginx configuration, backups, monitoring and a go-live checklist.
+**Free, on your own domain, start to finish:**
+**[deploy/FREE-DEPLOY.md](./deploy/FREE-DEPLOY.md)** — Oracle Cloud Always Free
+VM, DNS, Node + Caddy, systemd, first-run seed, demo-data cleanup and backups.
+It ships a matching [`Caddyfile`](./deploy/Caddyfile) and
+[`kiln.env.example`](./deploy/kiln.env.example).
+
+**[DEPLOYMENT.md](./DEPLOYMENT.md)** — the reference behind it: full environment
+table, Nginx alternative, monitoring, and the go-live checklist.
 
 Three guards are worth knowing about before you deploy:
 

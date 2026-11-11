@@ -19,6 +19,7 @@
     "test": "npm run typecheck && npm run test:payments",
     "seed": "tsx server/scripts/seed.ts",
     "reseed": "tsx server/scripts/reseed.ts",
+    "clear-demo-data": "tsx server/scripts/clear-demo-data.ts",
     "migrate": "tsx server/scripts/migrate.ts",
     "backup": "tsx server/scripts/backup.ts",
     "restore": "tsx server/scripts/restore.ts",

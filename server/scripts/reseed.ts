@@ -3,6 +3,9 @@
  *
  * Only for local/demo environments. Never run against production.
  */
+// Load ./.env exactly as the API does: these scripts must act on the same data
+// directory, and dotenv does not override variables already in the environment.
+import "dotenv/config";
 import { migrate } from "../db/migrate";
 import { seed } from "../db/seed";
 

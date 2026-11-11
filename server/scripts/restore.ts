@@ -7,6 +7,9 @@
  *
  *   npx tsx server/scripts/restore.ts /var/backups/kiln/2026-11-05T02-00-00
  */
+// Load ./.env exactly as the API does: these scripts must act on the same data
+// directory, and dotenv does not override variables already in the environment.
+import "dotenv/config";
 import { readFile, rm, cp } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
