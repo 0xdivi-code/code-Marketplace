@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { CategoryGlyph } from "@/lib/category-icons";
+import { RefImage } from "@/components/ui/ref-image";
 import { ProductCard } from "@/components/site/product-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,18 @@ export default function CategoryPage() {
         className="relative overflow-hidden border-b border-line"
         style={{ background: `linear-gradient(120deg, ${category.from} 0%, ${category.to} 100%)` }}
       >
+        {/* The owner's thumbnail, when there is one. The gradient above stays
+            underneath, so a missing or broken file degrades to the flat colour
+            rather than a hole, and the scrim keeps the white copy readable over
+            an arbitrary photo. */}
+        {category.src && <RefImage src={category.src} alt="" className="object-cover opacity-90" />}
+        {category.src && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{ background: "linear-gradient(90deg, rgba(0,0,0,0.72), rgba(0,0,0,0.28))" }}
+          />
+        )}
         <div className="container-x relative py-12 text-white sm:py-16">
           <nav className="label-mono mb-5 flex items-center gap-2 text-[0.5625rem] text-white/60">
             <Link to="/" className="hover:text-white">

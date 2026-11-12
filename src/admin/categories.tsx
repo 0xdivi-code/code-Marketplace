@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Plus, GripVertical, Pencil, Trash2, Package } from "lucide-react";
+import { Plus, GripVertical, Pencil, Trash2, Package, ImagePlus, ImageOff, Loader2, Upload } from "lucide-react";
 import { PageHeader } from "./admin-layout";
 import { Panel } from "./ui";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,8 @@ interface AdminCategory {
   glyph: string;
   position: number;
   products: number;
+  /** uploaded thumbnail URL, or a bundled /img/... path; null = gradient only */
+  imagePath?: string | null;
 }
 
 export default function AdminCategories() {
@@ -28,6 +30,8 @@ export default function AdminCategories() {
   const [categories, setCategories] = React.useState<AdminCategory[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
+  const [uploading, setUploading] = React.useState(false);
+  const thumbInput = React.useRef<HTMLInputElement>(null);
   const [form, setForm] = React.useState({
     name: "",
     slug: "",
@@ -35,6 +39,7 @@ export default function AdminCategories() {
     from: "#171717",
     to: "#4a453c",
     glyph: "layers",
+    imagePath: null as string | null,
   });
   const cat = categories.find((c) => c.slug === editing);
 
@@ -63,8 +68,62 @@ export default function AdminCategories() {
       from: cat?.from ?? "#171717",
       to: cat?.to ?? "#4a453c",
       glyph: cat?.glyph ?? "layers",
+      imagePath: cat?.imagePath ?? null,
     });
   }, [open, cat?.slug]);
+
+  /**
+   * Upload the thumbnail.
+   *
+   * An existing category has a slug, so the image is attached straight away and
+   * the PATCH that follows keeps it. A new category does not exist yet, so the
+   * file goes to the draft slot (`/categories/uploads/image`) and the returned
+   * URL is sent with the create request — otherwise the picture would have to be
+   * uploaded twice, or the owner would have to save, reopen and upload.
+   */
+  async function uploadThumb(file: File | undefined) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return toast.error("That is not an image.");
+    if (file.size > 8 * 1024 * 1024) return toast.error("Images are capped at 8 MB.");
+
+    setUploading(true);
+    try {
+      const body = new FormData();
+      body.append("file", file, file.name);
+      const target = cat ? `/admin/categories/${cat.slug}/image` : "/admin/categories/uploads/image";
+      const res = await api.form<{ imagePath: string }>(target, body);
+      setForm((f) => ({ ...f, imagePath: res.imagePath }));
+      toast.success("Thumbnail ready", {
+        description: cat ? "Saved to this category." : "It will be attached when you create the category.",
+      });
+      // An existing category is already saved; refresh the list so the row shows it.
+      if (cat) await load();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function clearThumb() {
+    if (!form.imagePath) return;
+    // Nothing to delete server-side for a draft — the URL travels with the create.
+    if (!cat) {
+      setForm((f) => ({ ...f, imagePath: null }));
+      return;
+    }
+    setUploading(true);
+    try {
+      await api.del(`/admin/categories/${cat.slug}/image`);
+      setForm((f) => ({ ...f, imagePath: null }));
+      toast.success("Thumbnail removed", { description: "The gradient shows instead." });
+      await load();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not remove that image.");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function save() {
     if (form.name.trim().length < 2) return toast.error("Give the category a name.");
@@ -77,6 +136,7 @@ export default function AdminCategories() {
         from: form.from,
         to: form.to,
         glyph: form.glyph,
+        ...(form.imagePath ? { imagePath: form.imagePath } : {}),
       };
       if (cat) {
         await api.patch(`/admin/categories/${cat.slug}`, body);
@@ -132,12 +192,22 @@ export default function AdminCategories() {
             return (
               <div key={c.slug} className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-2/40">
                 <GripVertical className="size-3.5 shrink-0 cursor-grab text-ink-3" />
-                <span className="grid size-8 shrink-0 place-items-center rounded-[6px] border border-line bg-surface-2 text-ink-2">
-                  <CategoryGlyph glyph={c.glyph} className="size-4" />
+                <span
+                  className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-[6px] border border-line bg-surface-2 text-ink-2"
+                  style={c.imagePath ? undefined : { background: `linear-gradient(135deg, ${c.from}, ${c.to})` }}
+                >
+                  {c.imagePath ? (
+                    <img src={c.imagePath} alt="" className="absolute inset-0 size-full object-cover" />
+                  ) : (
+                    <CategoryGlyph glyph={c.glyph} className="size-4" />
+                  )}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[0.8125rem] font-medium">{c.name}</p>
-                  <p className="truncate text-[0.5625rem] text-ink-3">{c.blurb}</p>
+                  <p className="truncate text-[0.5625rem] text-ink-3">
+                    {c.imagePath ? "Custom thumbnail · " : "Gradient tile · "}
+                    {c.blurb}
+                  </p>
                 </div>
                 <div className="hidden shrink-0 text-right sm:block">
                   <p className="font-mono text-[0.6875rem]">{items.length} items</p>
@@ -248,6 +318,63 @@ export default function AdminCategories() {
                 className="min-h-16"
               />
             </Field>
+            {/* Thumbnail: the picture the storefront tile shows, at its real 3:4
+                ratio, so what the owner picks is what the homepage renders. */}
+            <div>
+              <div className="mb-2 flex items-baseline justify-between gap-2">
+                <p className="text-[0.75rem] font-medium">Thumbnail</p>
+                <p className="text-[0.625rem] text-ink-3">Shown on the homepage tile · 3:4</p>
+              </div>
+              <div className="flex gap-3">
+                <div className="relative aspect-[3/4] w-24 shrink-0 overflow-hidden rounded-md border border-line bg-surface-sunken">
+                  <div
+                    className="absolute inset-0"
+                    style={{ background: `linear-gradient(135deg, ${form.from}, ${form.to})` }}
+                  />
+                  {form.imagePath && (
+                    <img src={form.imagePath} alt="" className="absolute inset-0 size-full object-cover" />
+                  )}
+                  {uploading && (
+                    <span className="absolute inset-0 grid place-items-center bg-black/45 text-white">
+                      <Loader2 className="size-4 animate-spin" />
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1 space-y-2">
+                  <input
+                    ref={thumbInput}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/avif"
+                    className="hidden"
+                    onChange={(e) => {
+                      void uploadThumb(e.target.files?.[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={uploading}
+                      onClick={() => thumbInput.current?.click()}
+                    >
+                      {form.imagePath ? <ImagePlus className="size-3.5" /> : <Upload className="size-3.5" />}
+                      {form.imagePath ? "Replace image" : "Upload image"}
+                    </Button>
+                    {form.imagePath && (
+                      <Button type="button" variant="ghost" size="sm" disabled={uploading} onClick={() => void clearThumb()}>
+                        <ImageOff className="size-3.5" /> Remove
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-[0.6875rem] leading-snug text-ink-3">
+                    PNG, JPG, WEBP or AVIF up to 8 MB. Without an image the tile uses the gradient below.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <Field label="Gradient start" htmlFor="cfrom">
                 <div className="flex gap-2">

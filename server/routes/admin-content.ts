@@ -61,10 +61,25 @@ const categoryInput = z.object({
   imagePath: z.string().max(400).nullable().optional(),
 });
 
+/**
+ * Create a category.
+ *
+ * `imagePath` is accepted here so the dialog can upload a picture first and save
+ * once — the upload endpoint needs a slug, and a brand-new category has none
+ * until it exists. The two orderings both work:
+ *
+ *   create -> upload -> PATCH            (dialog saves, then uploads)
+ *   POST /categories/uploads -> upload -> create with imagePath
+ */
 adminApi.post("/categories", zValidator("json", categoryInput), async (c) => {
   const input = c.req.valid("json");
   const db = getDb();
   const slug = slugify(input.slug || input.name);
+
+  const clash = await db.select({ id: t.categories.id }).from(t.categories).where(eq(t.categories.slug, slug)).limit(1);
+  if (clash[0]) {
+    return c.json({ error: `A category with the slug “${slug}” already exists.` }, 409);
+  }
 
   let parentId: string | null = null;
   if (input.parentSlug) {
@@ -150,27 +165,71 @@ adminApi.delete("/categories/:slug", async (c) => {
   return c.json({ ok: true });
 });
 
+/**
+ * Category thumbnail.
+ *
+ * POST   multipart `file` -> stores it, writes the public URL, returns it.
+ * DELETE                   -> clears the thumbnail and deletes the stored file.
+ *
+ * Accepts the literal slug `uploads` for a category that has not been created
+ * yet, which is what lets "New category -> upload a thumbnail -> Create" work in
+ * one dialog. Nothing is attached to a row, so a discarded draft leaves at most
+ * one orphaned image in storage — the file the owner chose, and only if they
+ * close the dialog without saving.
+ */
 adminApi.post("/categories/:slug/image", async (c) => {
   const db = getDb();
-  const rows = await db.select().from(t.categories).where(eq(t.categories.slug, c.req.param("slug"))).limit(1);
+  const slug = c.req.param("slug");
+  const rows = slug === "uploads" ? [] : await db.select().from(t.categories).where(eq(t.categories.slug, slug)).limit(1);
   const category = rows[0];
-  if (!category) return c.json({ error: "Category not found" }, 404);
+  if (!category && slug !== "uploads") return c.json({ error: "Category not found" }, 404);
 
   const nodeReq = (c.env as { incoming?: import("node:http").IncomingMessage })?.incoming;
   if (!nodeReq) return c.json({ error: "Uploads require the node adapter." }, 501);
   try {
-    const file = await readUpload(c.req.raw, nodeReq, { kind: "image", productId: `category-${category.id}` });
+    const file = await readUpload(c.req.raw, nodeReq, {
+      kind: "image",
+      // Storage keys are namespaced by this, so a draft gets its own folder.
+      productId: category ? `category-${category.id}` : "category-draft",
+    });
+    const url = publicAssetUrl(file.storageKey);
+
+    if (!category) return c.json({ ok: true, imagePath: url }, 201);
+
+    const previous = category.imagePath;
     const [row] = await db
       .update(t.categories)
-      .set({ imagePath: publicAssetUrl(file.storageKey), updatedAt: new Date() })
+      .set({ imagePath: url, updatedAt: new Date() })
       .where(eq(t.categories.id, category.id))
       .returning();
+
+    // Replace, don't accumulate: the old file is unreachable once the row points
+    // at the new one. Only touch files this route owns (uploads, not /img/*).
+    if (previous?.startsWith("/api/assets/")) {
+      await remove(previous.slice("/api/assets/".length)).catch(() => {});
+    }
+
     await audit(c, { action: `changed the image for “${category.name}”`, target: category.slug, kind: "product" });
     return c.json({ ok: true, imagePath: row.imagePath });
   } catch (err) {
     if (err instanceof UploadError) return c.json({ error: err.message }, err.status as 400);
     return c.json({ error: "Upload failed." }, 500);
   }
+});
+
+adminApi.delete("/categories/:slug/image", async (c) => {
+  const db = getDb();
+  const rows = await db.select().from(t.categories).where(eq(t.categories.slug, c.req.param("slug"))).limit(1);
+  const category = rows[0];
+  if (!category) return c.json({ error: "Category not found" }, 404);
+
+  const previous = category.imagePath;
+  await db.update(t.categories).set({ imagePath: null, updatedAt: new Date() }).where(eq(t.categories.id, category.id));
+  if (previous?.startsWith("/api/assets/")) {
+    await remove(previous.slice("/api/assets/".length)).catch(() => {});
+  }
+  await audit(c, { action: `removed the image for “${category.name}”`, target: category.slug, kind: "product" });
+  return c.json({ ok: true });
 });
 
 /* ---------------------------------------------------------------- customers */
