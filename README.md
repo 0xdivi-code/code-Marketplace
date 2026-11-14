@@ -1,4 +1,5 @@
 # Kiln — source code marketplace
+<img width="1920" height="972" alt="Screenshot 2026-11-14 at 18 23 03" src="https://github.com/user-attachments/assets/bbd90798-cdb4-411b-ae79-c7eb9d8cb4ee" />
 
 A single-owner marketplace for developer source code: starters, dashboards, API
 layers and UI kits. Storefront, customer accounts, crypto-first checkout,
