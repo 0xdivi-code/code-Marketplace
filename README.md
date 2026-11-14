@@ -6,8 +6,9 @@ layers and UI kits. Storefront, customer accounts, crypto-first checkout,
 automatic delivery of purchased archives, and an owner-only admin console.
 
 Layout and interaction anatomy follow the reference design
-(`demo.storekitt.app`), re-skinned into an editorial "Kiln" identity and adapted
+(``), re-skinned into an editorial "Kiln" identity and adapted
 from multi-vendor to a single studio that sells and supports its own catalogue.
+<img width="1920" height="972" alt="Screenshot 2026-11-14 at 18 28 57" src="https://github.com/user-attachments/assets/f64f62b7-d91f-42f9-9c4a-0536fb10a982" />
 
 **Stack** — React 19 · TypeScript · Vite · Tailwind CSS 4 · Radix · Framer
 Motion · Recharts · Zustand · Hono · Drizzle · PGlite/PostgreSQL
@@ -95,7 +96,7 @@ CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" npm run te
 
 ---
 
-## Testing it yourself
+## Testing 
 
 **The fast check** — no browser needed:
 
